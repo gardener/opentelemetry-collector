@@ -1,4 +1,4 @@
-# Gardeber Opentelemetry-Collector Distro
+# Gardener Opentelemetry-Collector Distro
 
 [![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
 

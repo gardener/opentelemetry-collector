@@ -56,9 +56,9 @@ create-tools: $(GO_ADD_LICENSE) $(GO_OCB)
 #########################################
 
 $(GO_ADD_LICENSE):  $(call tool_version_file,$(GO_ADD_LICENSE),$(GO_ADD_LICENSE_VERSION))
-	GOBIN=$(abspath $(TOOLS_DIR)) go install github.com/google/addlicense@$(GO_ADD_LICENSE_VERSION)
+	@GOBIN=$(abspath $(TOOLS_DIR)) go install github.com/google/addlicense@$(GO_ADD_LICENSE_VERSION)
 
 $(GO_OCB): $(call tool_version_file,$(GO_OCB),$(GO_OCB_VERSION))
-	GOBIN=$(abspath $(TOOLS_DIR)) go install go.opentelemetry.io/collector/cmd/builder@$(GO_OCB_VERSION)
+	@GOBIN=$(abspath $(TOOLS_DIR)) go install go.opentelemetry.io/collector/cmd/builder@$(GO_OCB_VERSION)
 
 .PHONY: create-tools clean-tools

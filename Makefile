@@ -1,6 +1,6 @@
 NAME                        := otelcol
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUILD_ARCH					?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+BUILD_ARCH                  ?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 LD_FLAGS                    ?= "-s -w"
 
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
@@ -48,4 +48,4 @@ clean:
 	@rm -rf $(REPO_ROOT)/_build
 	@rm -f $(BIN_DIR)/$(NAME)
 
-.PHONY: all build clean generate-distribution $(TOOLS_DIR) $(BIN_DIR)
+.PHONY: all build clean generate-distribution

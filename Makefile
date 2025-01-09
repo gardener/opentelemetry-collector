@@ -15,6 +15,7 @@ endif
 #########################################
 BIN_DIR                     := $(REPO_ROOT)/bin
 TOOLS_DIR                   := $(REPO_ROOT)/tools
+BUILD_DIR                   := $(REPO_ROOT)/_build
 
 #########################################
 # Tools                                 #
@@ -32,11 +33,19 @@ $(TOOLS_DIR):
 $(BIN_DIR):
 	@mkdir -p $@
 
-build: $(GO_OCB)
-	@echo "Building $(NAME)..."
+generate-distribution: $(GO_OCB)
+	@echo "Generating opentelemetry collector distribution"
 	@$(GO_OCB) \
-	--config $(REPO_ROOT)/manifest.yml
+		--skip-get-modules \
+		--skip-compilation \
+		--config $(REPO_ROOT)/manifest.yml
+
+build: generate-distribution
+	@echo "Building opentelemetry collector distribution"
+	@$(REPO_ROOT)/hack/build_distribution.sh $(LD_FLAGS)
+
 clean:
 	@rm -rf $(REPO_ROOT)/_build
+	@rm -f $(BIN_DIR)/$(NAME)
 
-.PHONY: all build clean
+.PHONY: all build clean generate-distribution $(TOOLS_DIR) $(BIN_DIR)

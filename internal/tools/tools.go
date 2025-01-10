@@ -9,6 +9,11 @@
 package tools
 
 import (
+	_ "github.com/Antonboom/testifylint"
+	_ "github.com/daixiang0/gci"
 	_ "github.com/google/addlicense"
 	_ "go.opentelemetry.io/collector/cmd/builder"
+	_ "go.opentelemetry.io/collector/cmd/mdatagen"
+	_ "golang.org/x/tools/cmd/goimports"
+	_ "gotest.tools/gotestsum"
 )

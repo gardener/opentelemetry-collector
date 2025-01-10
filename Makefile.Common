@@ -1,0 +1,79 @@
+REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+#########################################
+# Dirs                                  #
+#########################################
+TOOLS_DIR                   := $(abspath $(REPO_ROOT)/_tools)
+
+EXCL_TP                     := -not -path '*/third_party/*'
+SRC_AND_DOC                 := $(shell find . -name "*.md" -o -name "*.go" -o -name "*.yaml" $(EXCL_TP) -type f | sort)
+SRC_AND_SHELL               := $(shell find . -name "*.sh" -o -name "*.go" $(EXCL_TP) -type f | sort)
+
+#########################################
+# OPTIONS                               #
+#########################################
+GCI_OPT                     ?= -s standard -s default -s "prefix(github.com/gardener/opentelemetry-collector)"
+GOIMPORTS_REVISER_OPT       ?= -imports-order "std,general,company,project"
+TESTIFYLINT_OPT             ?= --enable-all --disable=float-compare,require-error,suite-subtest-run,encoded-compare
+ADD_LICENSE_OPT             ?= -v -c "SAP SE or an SAP affiliate company and Gardener contributors" \
+                                -l apache -s=only \
+                                -y "$(shell date +"%Y")" \
+                                -ignore "**/*.md" \
+                                -ignore "**/generated*" \
+                                -ignore "**/*.yaml"
+
+#########################################
+.DEFAULT_GOAL := all
+all: go-generate tidy go-fmt go-lint goimports check-license-headers test
+
+.PHONY: tidy
+tidy:
+	@rm -fr go.sum
+	@go mod tidy
+
+.PHONY: go-fmt
+go-fmt:
+	@gofmt -l -w .
+
+.PHONY: go-lint
+go-lint: tools
+	@$(TOOLS_DIR)/golangci-lint run \
+	--config=$(REPO_ROOT)/.golangci.yaml \
+	--allow-parallel-runners \
+	--build-tags integration \
+	--timeout=5m \
+	--path-prefix $(shell basename "$(CURDIR)")
+
+.PHONY: test
+test: tools tidy go-lint check-license-headers
+	@echo "Running tests"
+	@$(TOOLS_DIR)/gotestsum --packages="./..."
+
+.PHONY: go-generate
+go-generate: tools
+	@PATH=$(TOOLS_DIR):$$PATH go generate ./...
+	@gofmt -l -w .
+
+.PHONY: goimports
+goimports: goimports_tool gci_tool
+
+.PHONY: goimports_tool
+goimports_tool: tools
+	@$(TOOLS_DIR)/goimports -w ./
+
+.PHONY: gci_tool
+gci_tool: tools
+	$(TOOLS_DIR)/gci write $(GCI_OPT) $(SRC_AND_DOC)
+
+.PHONY: check-license-headers
+check-license-headers: tools
+	@echo "Checking license headers"
+	@$(TOOLS_DIR)/addlicense -check $(ADD_LICENSE_OPT) $(SRC_AND_SHELL) || (echo "License headers are missing. Please run 'make add-license-headers' to add them." && exit 1)
+
+.PHONY: add-license-headers
+add-license-headers: tools
+	@$(TOOLS_DIR)/addlicense $(ADD_LICENSE_OPT) $(SRC_AND_SHELL)
+
+.PHONY: tools
+tools:
+	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools

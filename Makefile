@@ -14,28 +14,46 @@ endif
 # Dirs                                  #
 #########################################
 BIN_DIR                     := $(REPO_ROOT)/bin
-TOOLS_DIR                   := $(REPO_ROOT)/tools
 BUILD_DIR                   := $(REPO_ROOT)/_build
-
-#########################################
-# Tools                                 #
-#########################################
-include $(REPO_ROOT)/hack/tools.mk
+EXCL_TOOLS_DIR			    := -not -path "./internal/tools/*"
+EXCL_BUILD_DIR			    := -not -path "./_build/*"
+COMPONENT_DIRS              := $(shell find . -type f -name "go.mod" \
+									$(EXCL_TOOLS_DIR) $(EXCL_BUILD_DIR) \
+									-exec dirname {} \; | sort | grep -E '^./')
+.PHONY: print-component-dirs
+print-component-dirs:
+	@echo $(COMPONENT_DIRS)
 
 #########################################
 .DEFAULT_GOAL := all
-
-all: $(BIN_DIR) $(TOOLS_DIR) build
-
-$(TOOLS_DIR):
-	@mkdir -p $@
+all: $(BIN_DIR) go-generate go-test build
 
 $(BIN_DIR):
 	@mkdir -p $@
 
-generate-distribution: $(GO_OCB)
+.PHONY: $(COMPONENT_DIRS)
+$(COMPONENT_DIRS):
+	@echo "Running target '$(TARGET)' in component '$@'"
+	@$(MAKE) --no-print-directory -C $@ $(TARGET)
+
+add-license-headers:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="add-license-headers"
+
+go-generate: tools
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"
+
+go-fmt:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-fmt"
+
+go-test:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="test"
+
+go-imports:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="goimports"
+
+generate-distribution: tools
 	@echo "Generating opentelemetry collector distribution"
-	@$(GO_OCB) \
+	@$(REPO_ROOT)/_tools/builder \
 		--skip-get-modules \
 		--skip-compilation \
 		--config $(REPO_ROOT)/manifest.yml
@@ -48,4 +66,10 @@ clean:
 	@rm -rf $(REPO_ROOT)/_build
 	@rm -f $(BIN_DIR)/$(NAME)
 
-.PHONY: all build clean generate-distribution
+tools:
+	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools
+
+clean-tools:
+	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
+
+.PHONY: all build clean clean-tools for-all generate-distribution go-generate go-fmt go-test tools

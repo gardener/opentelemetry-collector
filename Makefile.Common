@@ -13,7 +13,6 @@ SRC_AND_SHELL               := $(shell find . -name "*.sh" -o -name "*.go" $(EXC
 # OPTIONS                               #
 #########################################
 GCI_OPT                     ?= -s standard -s default -s "prefix(github.com/gardener/opentelemetry-collector)"
-GOIMPORTS_REVISER_OPT       ?= -imports-order "std,general,company,project"
 TESTIFYLINT_OPT             ?= --enable-all --disable=float-compare,require-error,suite-subtest-run,encoded-compare
 ADD_LICENSE_OPT             ?= -v -c "SAP SE or an SAP affiliate company and Gardener contributors" \
                                 -l apache -s=only \

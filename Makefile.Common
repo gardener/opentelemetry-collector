@@ -13,6 +13,8 @@ SRC_AND_SHELL               := $(shell find . -name "*.sh" -o -name "*.go" $(EXC
 # OPTIONS                               #
 #########################################
 GCI_OPT                     ?= -s standard -s default -s "prefix(github.com/gardener/opentelemetry-collector)"
+GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -fmt=sarif -out=gosec-report.sarif
+GOSEC_OPT                   ?= -exclude-generated -track-suppressions -no-fail -stdout
 TESTIFYLINT_OPT             ?= --enable-all --disable=float-compare,require-error,suite-subtest-run,encoded-compare
 ADD_LICENSE_OPT             ?= -v -c "SAP SE or an SAP affiliate company and Gardener contributors" \
                                 -l apache -s=only \
@@ -42,6 +44,14 @@ go-lint: tools
 	--build-tags integration \
 	--timeout=5m \
 	--path-prefix $(shell basename "$(CURDIR)")
+
+.PHONY: gosec
+gosec: tools
+	@$(TOOLS_DIR)/gosec $(GOSEC_OPT) ./...
+
+.PHONY: gosec-report
+gosec-report: tools
+	@$(TOOLS_DIR)/gosec $(GOSEC_REPORT_OPT) ./...
 
 .PHONY: test
 test: tools tidy go-lint check-license-headers

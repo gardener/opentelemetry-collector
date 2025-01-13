@@ -1,3 +1,6 @@
 bin/
 _tools/
 _build/
+
+# generate reports
+gosec-report.sarif

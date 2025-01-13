@@ -51,6 +51,12 @@ go-test:
 go-imports:
 	@$(MAKE) $(COMPONENT_DIRS) TARGET="goimports"
 
+go-sec:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec"
+
+go-sec-report:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"
+
 generate-distribution: tools
 	@echo "Generating opentelemetry collector distribution"
 	@$(REPO_ROOT)/_tools/builder \
@@ -72,4 +78,4 @@ tools:
 clean-tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
 
-.PHONY: all build clean clean-tools for-all generate-distribution go-generate go-fmt go-test tools
+.PHONY: all build clean clean-tools for-all generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools

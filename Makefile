@@ -39,6 +39,9 @@ $(COMPONENT_DIRS):
 add-license-headers:
 	@$(MAKE) $(COMPONENT_DIRS) TARGET="add-license-headers"
 
+go-check:
+	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-check"
+
 go-generate: tools
 	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"
 

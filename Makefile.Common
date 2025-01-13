@@ -36,6 +36,9 @@ tidy:
 go-fmt:
 	@gofmt -l -w .
 
+.PHONY: go-check
+go-check: tools tidy go-lint gosec check-license-headers
+
 .PHONY: go-lint
 go-lint: tools
 	@$(TOOLS_DIR)/golangci-lint run \

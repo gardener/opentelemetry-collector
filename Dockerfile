@@ -25,12 +25,13 @@ FROM gcr.io/distroless/static:nonroot
 # Add container image labels
 ARG BUILD_DATE
 ARG EFFECTIVE_VERSION
+ARG REVISION
 LABEL org.opencontainers.image.title="Gardener Opentelemetry Collector"
 LABEL org.opencontainers.image.version="${EFFECTIVE_VERSION}"
 LABEL org.opencontainers.image.description="A otel collector distribution for Gardener"
 LABEL org.opencontainers.image.source="https://github.com/gardener/opentelemetry-collector"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
-LABEL org.opencontainers.image.revision="git-commit-sha"
+LABEL org.opencontainers.image.revision="${REVISION}"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.authors="@gardener/opentelemetry-collector-maintainers"
 

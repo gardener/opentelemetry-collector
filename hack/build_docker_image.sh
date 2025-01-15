@@ -33,10 +33,11 @@ BUILDER_VERSION=$(go list \
 printf "Using builder version %s\n" "${BUILDER_VERSION}"
 
 docker build \
+    --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
     --build-arg BUILDER_VERSION="${BUILDER_VERSION}" \
     --build-arg EFFECTIVE_VERSION="${EFFECTIVE_VERSION}" \
     --build-arg LD_FLAGS="${LD_FLAGS}" \
-    --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+    --build-arg REVISION=$(git rev-parse HEAD) \
     -t "${IMAGE_REPOSITORY}:${EFFECTIVE_VERSION}" \
     -t "${IMAGE_REPOSITORY}:latest" \
     -f "${REPO_DIR}/Dockerfile" \

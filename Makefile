@@ -10,6 +10,10 @@ ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
 	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
 endif
 
+REGISTRY                    ?= europe-docker.pkg.dev/gardener-project/snapshots/gardener/otel
+IMAGE_REPOSITORY            := $(REGISTRY)/opentelemetry-collector
+
+
 #########################################
 # Dirs                                  #
 #########################################
@@ -81,4 +85,8 @@ tools:
 clean-tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
 
-.PHONY: all build clean clean-tools for-all generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools
+docker-image:
+	@echo "Building opentelemetry collector container image"
+	@$(REPO_ROOT)/hack/build_docker_image.sh $(IMAGE_REPOSITORY) $(EFFECTIVE_VERSION) $(LD_FLAGS)
+
+.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools

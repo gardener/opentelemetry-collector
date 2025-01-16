@@ -75,7 +75,7 @@ build: generate-distribution
 	@echo "Building opentelemetry collector distribution"
 	@$(REPO_ROOT)/hack/build_distribution.sh $(LD_FLAGS)
 
-verify-extended: go-check go-sec-report
+verify-extended: go-check go-test go-sec-report
 
 clean:
 	@rm -rf $(REPO_ROOT)/_build

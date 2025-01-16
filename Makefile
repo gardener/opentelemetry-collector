@@ -75,6 +75,8 @@ build: generate-distribution
 	@echo "Building opentelemetry collector distribution"
 	@$(REPO_ROOT)/hack/build_distribution.sh $(LD_FLAGS)
 
+verify-extended: go-check go-sec-report
+
 clean:
 	@rm -rf $(REPO_ROOT)/_build
 	@rm -f $(BIN_DIR)/$(NAME)
@@ -89,4 +91,4 @@ docker-image:
 	@echo "Building opentelemetry collector container image"
 	@$(REPO_ROOT)/hack/build_docker_image.sh $(IMAGE_REPOSITORY) $(EFFECTIVE_VERSION) $(LD_FLAGS)
 
-.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools
+.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended

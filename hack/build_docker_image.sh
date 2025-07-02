@@ -19,9 +19,10 @@ function effective_version() {
 
 REPO_DIR="$( cd "$(dirname "$( dirname "${BASH_SOURCE[0]}" )")" &> /dev/null && pwd )"
 
-IMAGE_REPOSITORY=${1:-"europe-docker.pkg.dev/gardener-project/snapshots/gardener/otel/opentelemetry-collector"}
-EFFECTIVE_VERSION=${2:-$(effective_version)}
-LD_FLAGS=${3:-"-s -w"}
+TARGET=${1:-"control-plane"}
+IMAGE_REPOSITORY=${2:-"europe-docker.pkg.dev/gardener-project/snapshots/gardener/otel/collector-${TARGET}"}
+EFFECTIVE_VERSION=${3:-$(effective_version)}
+LD_FLAGS=${4:-"-s -w"}
 
 printf "Building image %s:%s\n" "${IMAGE_REPOSITORY}" "${EFFECTIVE_VERSION}"
 
@@ -41,4 +42,5 @@ docker build \
     -t "${IMAGE_REPOSITORY}:${EFFECTIVE_VERSION}" \
     -t "${IMAGE_REPOSITORY}:latest" \
     -f "${REPO_DIR}/Dockerfile" \
+    --target "${TARGET}" \
     "${REPO_DIR}"

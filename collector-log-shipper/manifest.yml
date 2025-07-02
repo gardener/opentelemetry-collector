@@ -1,0 +1,32 @@
+dist:
+  name: opentelemetry-collector-log-shipper
+  description: Gardener OTel Collector distribution for the Shoot Log Shipper
+  output_path: ./_build/opentelemetry-collector-log-shipper
+  version: 0.0.1
+
+exporters:
+  # Standard exporters
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.117.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.117.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.117.0
+  - gomod: go.opentelemetry.io/collector/exporter/nopexporter v0.117.0
+  # Contrib exporters
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/lokiexporter v0.117.0
+
+processors:
+  # Standard processors
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.117.0
+  # Contrib processors
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourceprocessor v0.117.0
+
+receivers:
+  # Contrib receivers
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver v0.117.0
+
+extensions:
+  # Contrib extensions
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/bearertokenauthextension v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/filestorage v0.117.0

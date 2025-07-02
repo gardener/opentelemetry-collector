@@ -1,0 +1,39 @@
+dist:
+  name: opentelemetry-collector-control-plane
+  description: Gardener OTel Collector distribution for the Shoot Control Plane
+  output_path: ./_build/opentelemetry-collector-control-plane
+  version: 0.0.1
+
+exporters:
+  # Standard exporters
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.117.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.117.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.117.0
+  - gomod: go.opentelemetry.io/collector/exporter/nopexporter v0.117.0
+  # Contrib exporters
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/lokiexporter v0.117.0
+
+processors:
+  # Standard processors
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.117.0
+  - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.117.0
+  # Contrib processors
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbyattrsprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourceprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor v0.117.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.117.0
+
+receivers:
+  # Standard receivers
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.117.0
+  # Contrib receivers
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/lokireceiver v0.117.0
+
+connectors:
+  # Standard connectors
+  - gomod: go.opentelemetry.io/collector/connector/forwardconnector v0.117.0

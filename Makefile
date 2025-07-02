@@ -1,17 +1,20 @@
-NAME                        := otelcol
-REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUILD_ARCH                  ?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-LD_FLAGS                    ?= "-s -w"
+REGISTRY                         ?= europe-docker.pkg.dev
+BASE_REPOSITORY 	         ?= $(REGISTRY)/gardener-project/snapshots/gardener/otel
+NAME_LOG_SHIPPER_COLLECTOR       := log-shipper
+NAME_CONTROL_PLANE_COLLECTOR     := control-plane
+REGISTRY_LOG_SHIPPER_COLLECTOR   ?= $(BASE_REPOSITORY)/collector-$(NAME_LOG_SHIPPER_COLLECTOR)
+REGISTRY_CONTROL_PLANE_COLLECTOR ?= $(BASE_REPOSITORY)/collector-$(NAME_CONTROL_PLANE_COLLECTOR)
 
-VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
-EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse --short HEAD)
+REPO_ROOT                    := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+BUILD_ARCH                   ?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+LD_FLAGS                     ?= "-s -w"
+
+VERSION                      := $(shell cat "$(REPO_ROOT)/VERSION")
+EFFECTIVE_VERSION            := $(VERSION)-$(shell git rev-parse --short HEAD)
 
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
 	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
 endif
-
-REGISTRY                    ?= europe-docker.pkg.dev/gardener-project/snapshots/gardener/otel
-IMAGE_REPOSITORY            := $(REGISTRY)/opentelemetry-collector
 
 
 #########################################
@@ -33,6 +36,9 @@ print-component-dirs:
 all: $(BIN_DIR) go-generate go-test build
 
 $(BIN_DIR):
+	@mkdir -p $@
+
+$(BUILD_DIR):
 	@mkdir -p $@
 
 .PHONY: $(COMPONENT_DIRS)
@@ -64,22 +70,30 @@ go-sec:
 go-sec-report:
 	@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"
 
-generate-distribution: tools
-	@echo "Generating opentelemetry collector distribution"
+generate-distributions: tools $(BUILD_DIR)
+	@echo "Generating opentelemetry collector distributions"
+	@echo "Building Control Plane Collector"
 	@$(REPO_ROOT)/_tools/builder \
 		--skip-get-modules \
 		--skip-compilation \
-		--config $(REPO_ROOT)/manifest.yml
+		--config $(REPO_ROOT)/collector-control-plane/manifest.yml
+	@echo "Building Log Shipper Collector"
+	@$(REPO_ROOT)/_tools/builder \
+		--skip-get-modules \
+		--skip-compilation \
+		--config $(REPO_ROOT)/collector-log-shipper/manifest.yml
 
-build: generate-distribution
+build: generate-distributions
 	@echo "Building opentelemetry collector distribution"
-	@$(REPO_ROOT)/hack/build_distribution.sh $(LD_FLAGS)
+	@$(REPO_ROOT)/hack/build_distribution.sh $(NAME_CONTROL_PLANE_COLLECTOR) $(LD_FLAGS)
+	@$(REPO_ROOT)/hack/build_distribution.sh $(NAME_LOG_SHIPPER_COLLECTOR) $(LD_FLAGS)
 
 verify-extended: go-check go-test go-sec-report
 
 clean:
 	@rm -rf $(REPO_ROOT)/_build
-	@rm -f $(BIN_DIR)/$(NAME)
+	@rm -f $(BIN_DIR)/$(NAME_LOG_SHIPPER_COLLECTOR)
+	@rm -f $(BIN_DIR)/$(NAME_CONTROL_PLANE_COLLECTOR)
 
 tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools
@@ -87,8 +101,9 @@ tools:
 clean-tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
 
-docker-image:
-	@echo "Building opentelemetry collector container image"
-	@$(REPO_ROOT)/hack/build_docker_image.sh $(IMAGE_REPOSITORY) $(EFFECTIVE_VERSION) $(LD_FLAGS)
+docker-images:
+	@echo "Building opentelemetry collector container images"
+	@$(REPO_ROOT)/hack/build_docker_image.sh $(NAME_CONTROL_PLANE_COLLECTOR) $(REGISTRY_CONTROL_PLANE_COLLECTOR) $(EFFECTIVE_VERSION) $(LD_FLAGS)
+	@$(REPO_ROOT)/hack/build_docker_image.sh $(NAME_LOG_SHIPPER_COLLECTOR) $(REGISTRY_LOG_SHIPPER_COLLECTOR) $(EFFECTIVE_VERSION) $(LD_FLAGS)
 
-.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended
+.PHONY: all build clean clean-tools docker-images generate-distributions go-generate go-fmt go-sec go-sec-report go-test tools verify-extended

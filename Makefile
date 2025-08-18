@@ -13,12 +13,14 @@ endif
 REGISTRY                    ?= europe-docker.pkg.dev/gardener-project/snapshots/gardener/otel
 IMAGE_REPOSITORY            := $(REGISTRY)/opentelemetry-collector
 
+GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -fmt=sarif -out=gosec-report.sarif
 
 #########################################
 # Dirs                                  #
 #########################################
 BIN_DIR                     := $(REPO_ROOT)/bin
 BUILD_DIR                   := $(REPO_ROOT)/_build
+TOOLS_DIR                   := $(abspath $(REPO_ROOT)/_tools)
 EXCL_TOOLS_DIR			    := -not -path "./internal/tools/*"
 EXCL_BUILD_DIR			    := -not -path "./_build/*"
 COMPONENT_DIRS              := $(shell find . -type f -name "go.mod" \
@@ -41,28 +43,50 @@ $(COMPONENT_DIRS):
 	@$(MAKE) --no-print-directory -C $@ $(TARGET)
 
 add-license-headers:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="add-license-headers"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="add-license-headers"; \
+	fi
 
 go-check:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-check"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-check"; \
+	fi
 
 go-generate: tools
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"; \
+	fi
 
 go-fmt:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="go-fmt"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-fmt"; \
+	fi
 
 go-test:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="test"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="test"; \
+	fi
 
 go-imports:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="goimports"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="goimports"; \
+	fi
 
 go-sec:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec"; \
+	fi
+	@$(MAKE) $(BUILD_DIR) 
+
 
 go-sec-report:
-	@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"
+	@if [ -n "$(COMPONENT_DIRS)" ]; then \
+		@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"; \
+	fi
+
+.PHONY: go-sec-report-build
+go-sec-report-build: tools build
+	@$(TOOLS_DIR)/gosec $(GOSEC_REPORT_OPT) $(BUILD_DIR)/...
 
 generate-distribution: tools
 	@echo "Generating opentelemetry collector distribution"

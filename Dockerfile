@@ -20,7 +20,7 @@ ARG TARGETARCH
 RUN GO111MODULE=on CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "${LD_FLAGS}" -o otelcol .
 
 # Stage 2: Create the final image
-FROM gcr.io/distroless/static:nonroot as collector
+FROM gcr.io/distroless/static:nonroot AS collector
 
 # Add container image labels
 ARG BUILD_DATE

@@ -44,6 +44,8 @@ jobs:
       oci-repository: ${{ matrix.args.oci-repository }}
       oci-platforms: linux/amd64,linux/arm64
       ocm-labels: ${{ toJSON(matrix.args.ocm-labels) }}
+      build-args: |
+        BUILDER_VERSION=v0.117.0
 
   verify:
     runs-on: ubuntu-latest

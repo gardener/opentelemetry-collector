@@ -57,7 +57,7 @@ jobs:
       - name: run-verify
         run: |
           set -eu
-          .ci/verify
+          make verify-extended
           # verify calls `make sast-report`, which generates `gosec-report.sarif`
           mkdir /tmp/blobs.d
           tar czf /tmp/blobs.d/gosec-report.tar.gz gosec-report.sarif

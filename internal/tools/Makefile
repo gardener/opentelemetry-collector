@@ -23,7 +23,7 @@ GO_OTELCOL_BUILDER                     := $(TOOLS_DIR)/builder
 GO_OTELCOL_BUILDER_VERSION             ?= $(call version_gomod,go.opentelemetry.io/collector/cmd/builder)
 
 GO_SEC                                 := $(TOOLS_DIR)/gosec
-GO_SEC_VERSION                         ?= v2.21.4
+GO_SEC_VERSION                         ?= v2.22.8
 
 GO_TESTIFYLINT                         := $(TOOLS_DIR)/testifylint
 GO_TESTIFYLINT_VERSION                 ?= $(call version_gomod,github.com/Antonboom/testifylint)

@@ -57,11 +57,10 @@ jobs:
       - name: run-verify
         run: |
           set -eu
-          make verify-extended
+          make verify-extended go-sec-report-build
           # verify calls `make sast-report`, which generates `gosec-report.sarif`
           # make sure to add any additional gosec reports to the archive when introducing new components (exporters, receivers, etc.)
-          mkdir /tmp/blobs.d
-          tar czf /tmp/blobs.d/gosec-report.tar.gz gosec-report.sarif
+          tar czf gosec-report.tar.gz gosec-report.sarif
       - name: add-sast-report-to-component-descriptor
         uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
         with:

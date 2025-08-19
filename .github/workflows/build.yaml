@@ -20,10 +20,25 @@ jobs:
     permissions:
       contents: read
 
+
+  resolve-builder-version:
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      builder-version: ${{ steps.resolve-builder-version.outputs.builder-version }}
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - id: resolve-builder-version
+        run: echo "builder-version=$(go list -modfile="internal/tools/go.mod" -mod=mod -f '{{ .Version }}' -m go.opentelemetry.io/collector/cmd/builder)" >> "$GITHUB_OUTPUT"
+
   oci-images:
     name: Build OCI-Images
     needs:
       - prepare
+      - resolve-builder-version
     permissions:
       contents: read
       packages: write
@@ -45,7 +60,7 @@ jobs:
       oci-platforms: linux/amd64,linux/arm64
       ocm-labels: ${{ toJSON(matrix.args.ocm-labels) }}
       build-args: |
-        BUILDER_VERSION=v0.117.0
+        BUILDER_VERSION=${{needs.resolve-builder-version.outputs.builder-version}}
 
   verify:
     runs-on: ubuntu-latest

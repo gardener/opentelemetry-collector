@@ -1,7 +1,0 @@
-type: vali
-
-status:
-  class: exporter
-  stability:
-    alpha: [logs]
-  distributions: [contrib]

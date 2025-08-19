@@ -84,9 +84,8 @@ go-sec-report:
 		@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"; \
 	fi
 
-
 # For some reaosn, gosec has issues when trying to reference a directory that isn't '.'.
-# E.g. `$ gosec dir1/...` fails with a nil error. Thus we manually change cur dir
+# E.g. `$ gosec dir1/...` fails with a nil error. Thus, we manually change cur dir
 # before running gosec.
 .PHONY: go-sec-report-build
 go-sec-report-build: tools build

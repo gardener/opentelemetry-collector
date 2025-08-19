@@ -20,10 +20,8 @@ jobs:
     permissions:
       contents: read
 
-
   resolve-builder-version:
     runs-on: ubuntu-latest
-    # Map a step output to a job output
     outputs:
       builder-version: ${{ steps.resolve-builder-version.outputs.builder-version }}
     steps:

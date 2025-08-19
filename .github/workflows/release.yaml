@@ -8,7 +8,6 @@ on:
           - bump-minor
           - bump-patch
 
-
 jobs:
   build:
     uses: ./.github/workflows/build.yaml

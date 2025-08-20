@@ -3,7 +3,8 @@ REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_
 LD_FLAGS                    ?= "-s -w"
 
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
-EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse --short HEAD)
+REVISION                    := $(shell git rev-parse --short HEAD)
+EFFECTIVE_VERSION           := $(VERSION)-$(REVISION)
 
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
 	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
@@ -29,6 +30,14 @@ COMPONENT_DIRS              := $(shell find . -mindepth 2 \
 .PHONY: print-component-dirs
 print-component-dirs:
 	@echo $(COMPONENT_DIRS)
+
+.PHONY: print-effective-version
+print-effective-version:
+	@echo $(EFFECTIVE_VERSION)
+
+.PHONY: print-revision
+print-revision:
+	@echo $(REVISION)
 
 #########################################
 .DEFAULT_GOAL := all

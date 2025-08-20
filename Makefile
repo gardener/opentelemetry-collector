@@ -89,9 +89,9 @@ go-sec-report:
 go-sec-report-build: tools build
 	cd $(BUILD_DIR) && $(TOOLS_DIR)/gosec $(GOSEC_REPORT_OPT) ./...
 
-generate-distribution: tools
+generate-distribution: builder-tool
 	@echo "Generating opentelemetry collector distribution"
-	@$(REPO_ROOT)/_tools/builder \
+	$(REPO_ROOT)/_tools/builder \
 		--skip-get-modules \
 		--skip-compilation \
 		--config $(REPO_ROOT)/manifest.yml
@@ -112,11 +112,21 @@ clean:
 tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools
 
+builder-tool:
+	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools $(TOOLS_DIR)/builder
+
 clean-tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
 
 docker-image:
 	@echo "Building opentelemetry collector container image"
-	@$(REPO_ROOT)/hack/build_docker_image.sh $(IMAGE_REPOSITORY) $(EFFECTIVE_VERSION) $(LD_FLAGS)
+	@docker build \
+		--build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+		--build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
+		--build-arg LD_FLAGS=$(LD_FLAGS) \
+		--build-arg REVISION=$(git rev-parse HEAD) \
+		-t "$(IMAGE_REPOSITORY):$(EFFECTIVE_VERSION)" \
+		-t "$(IMAGE_REPOSITORY):latest" \
+		.
 
-.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended
+.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended builder-tool go-sec-report-build

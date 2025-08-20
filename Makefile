@@ -76,8 +76,6 @@ go-sec:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
 		@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec"; \
 	fi
-	@$(MAKE) $(BUILD_DIR) 
-
 
 go-sec-report:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \

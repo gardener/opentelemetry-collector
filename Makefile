@@ -1,6 +1,5 @@
 NAME                        := otelcol
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUILD_ARCH                  ?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 LD_FLAGS                    ?= "-s -w"
 
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
@@ -21,11 +20,12 @@ GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -f
 BIN_DIR                     := $(REPO_ROOT)/bin
 BUILD_DIR                   := $(REPO_ROOT)/_build
 TOOLS_DIR                   := $(abspath $(REPO_ROOT)/_tools)
-EXCL_TOOLS_DIR			    := -not -path "./internal/tools/*"
-EXCL_BUILD_DIR			    := -not -path "./_build/*"
-COMPONENT_DIRS              := $(shell find . -type f -name "go.mod" \
-									$(EXCL_TOOLS_DIR) $(EXCL_BUILD_DIR) \
-									-exec dirname {} \; | sort | grep -E '^./')
+COMPONENT_DIRS              := $(shell find . -mindepth 2 \
+						-type f -name "go.mod" \
+						-not -path "./internal/tools/*" \
+						-not -path "./_build/*" \
+						-exec dirname {} \;)
+
 .PHONY: print-component-dirs
 print-component-dirs:
 	@echo $(COMPONENT_DIRS)

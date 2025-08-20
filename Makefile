@@ -98,7 +98,10 @@ generate-distribution: tools
 
 build: generate-distribution
 	@echo "Building opentelemetry collector distribution"
-	@$(REPO_ROOT)/hack/build_distribution.sh $(LD_FLAGS)
+	@cd $(BUILD_DIR) && \
+		go mod download && \
+		go mod tidy && \
+		env CGO_ENABLED=0 GO111MODULE=on go build -ldflags $(LD_FLAGS) -o $(BIN_DIR)/$(NAME) .
 
 verify-extended: go-check go-test go-sec-report
 

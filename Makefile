@@ -133,7 +133,7 @@ docker-image:
 		--build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
 		--build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
 		--build-arg LD_FLAGS=$(LD_FLAGS) \
-		--build-arg REVISION=$(git rev-parse HEAD) \
+		--build-arg REVISION=$(REVISION) \
 		-t "$(IMAGE_REPOSITORY):$(EFFECTIVE_VERSION)" \
 		-t "$(IMAGE_REPOSITORY):latest" \
 		.

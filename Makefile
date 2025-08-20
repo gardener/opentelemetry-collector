@@ -130,9 +130,8 @@ clean-tools:
 docker-image:
 	@echo "Building opentelemetry collector container image"
 	@docker build \
-		--build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+		--build-arg BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ') \
 		--build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
-		--build-arg LD_FLAGS=$(LD_FLAGS) \
 		--build-arg REVISION=$(REVISION) \
 		-t "$(IMAGE_REPOSITORY):$(EFFECTIVE_VERSION)" \
 		-t "$(IMAGE_REPOSITORY):latest" \

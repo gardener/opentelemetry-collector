@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
 
-  resolve-builder-version:
+  get-version-info:
     runs-on: ubuntu-latest
     outputs:
       effective-version: ${{ steps.get-version-info.outputs.effective-version }}
@@ -44,7 +44,7 @@ jobs:
     name: Build OCI-Images
     needs:
       - prepare
-      - resolve-builder-version
+      - get-version-info
     permissions:
       contents: read
       packages: write

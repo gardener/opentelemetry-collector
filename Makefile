@@ -1,10 +1,10 @@
 NAME                        := otelcol
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUILD_ARCH                  ?= $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 LD_FLAGS                    ?= "-s -w"
 
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
-EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse --short HEAD)
+REVISION                    := $(shell git rev-parse --short HEAD)
+EFFECTIVE_VERSION           := $(VERSION)-$(REVISION)
 
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
 	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
@@ -21,14 +21,23 @@ GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -f
 BIN_DIR                     := $(REPO_ROOT)/bin
 BUILD_DIR                   := $(REPO_ROOT)/_build
 TOOLS_DIR                   := $(abspath $(REPO_ROOT)/_tools)
-EXCL_TOOLS_DIR			    := -not -path "./internal/tools/*"
-EXCL_BUILD_DIR			    := -not -path "./_build/*"
-COMPONENT_DIRS              := $(shell find . -type f -name "go.mod" \
-									$(EXCL_TOOLS_DIR) $(EXCL_BUILD_DIR) \
-									-exec dirname {} \; | sort | grep -E '^./')
+COMPONENT_DIRS              := $(shell find . -mindepth 2 \
+						-type f -name "go.mod" \
+						-not -path "./internal/tools/*" \
+						-not -path "./_build/*" \
+						-exec dirname {} \;)
+
 .PHONY: print-component-dirs
 print-component-dirs:
 	@echo $(COMPONENT_DIRS)
+
+.PHONY: print-effective-version
+print-effective-version:
+	@echo $(EFFECTIVE_VERSION)
+
+.PHONY: print-revision
+print-revision:
+	@echo $(REVISION)
 
 #########################################
 .DEFAULT_GOAL := all
@@ -89,16 +98,19 @@ go-sec-report:
 go-sec-report-build: tools build
 	cd $(BUILD_DIR) && $(TOOLS_DIR)/gosec $(GOSEC_REPORT_OPT) ./...
 
-generate-distribution: tools
+generate-distribution: builder-tool
 	@echo "Generating opentelemetry collector distribution"
-	@$(REPO_ROOT)/_tools/builder \
+	$(REPO_ROOT)/_tools/builder \
 		--skip-get-modules \
 		--skip-compilation \
 		--config $(REPO_ROOT)/manifest.yml
 
 build: generate-distribution
 	@echo "Building opentelemetry collector distribution"
-	@$(REPO_ROOT)/hack/build_distribution.sh $(LD_FLAGS)
+	@cd $(BUILD_DIR) && \
+		go mod download && \
+		go mod tidy && \
+		env CGO_ENABLED=0 GO111MODULE=on go build -ldflags $(LD_FLAGS) -o $(BIN_DIR)/$(NAME) .
 
 verify-extended: go-check go-test go-sec-report
 
@@ -109,11 +121,20 @@ clean:
 tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools
 
+builder-tool:
+	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools $(TOOLS_DIR)/builder
+
 clean-tools:
 	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
 
 docker-image:
 	@echo "Building opentelemetry collector container image"
-	@$(REPO_ROOT)/hack/build_docker_image.sh $(IMAGE_REPOSITORY) $(EFFECTIVE_VERSION) $(LD_FLAGS)
+	@docker build \
+		--build-arg BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ') \
+		--build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
+		--build-arg REVISION=$(REVISION) \
+		-t "$(IMAGE_REPOSITORY):$(EFFECTIVE_VERSION)" \
+		-t "$(IMAGE_REPOSITORY):latest" \
+		.
 
-.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended
+.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended builder-tool go-sec-report-build

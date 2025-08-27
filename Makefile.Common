@@ -3,8 +3,7 @@ REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_
 #########################################
 # Dirs                                  #
 #########################################
-TOOLS_DIR                   := $(abspath $(REPO_ROOT)/_tools)
-
+TOOLS_MOD_FILE              := $(REPO_ROOT)/internal/tools/go.mod
 EXCL_TP                     := -not -path '*/third_party/*'
 SRC_AND_DOC                 := $(shell find . -name "*.md" -o -name "*.go" -o -name "*.yaml" $(EXCL_TP) -type f | sort)
 SRC_AND_SHELL               := $(shell find . -name "*.sh" -o -name "*.go" $(EXCL_TP) -type f | sort)
@@ -29,7 +28,6 @@ all: go-generate tidy go-fmt go-lint goimports check-license-headers test
 
 .PHONY: tidy
 tidy:
-	@rm -fr go.sum
 	@go mod tidy
 
 .PHONY: go-fmt
@@ -37,11 +35,11 @@ go-fmt:
 	@gofmt -l -w .
 
 .PHONY: go-check
-go-check: tools tidy go-lint gosec check-license-headers
+go-check: tidy go-lint gosec check-license-headers
 
 .PHONY: go-lint
-go-lint: tools
-	@$(TOOLS_DIR)/golangci-lint run \
+go-lint:
+	@go tool -modfile $(TOOLS_MOD_FILE) golangci-lint run \
 	--config=$(REPO_ROOT)/.golangci.yaml \
 	--allow-parallel-runners \
 	--build-tags integration \
@@ -49,43 +47,35 @@ go-lint: tools
 	--path-prefix $(shell basename "$(CURDIR)")
 
 .PHONY: gosec
-gosec: tools
-	@$(TOOLS_DIR)/gosec $(GOSEC_OPT) ./...
+gosec:
+	@go tool -modfile $(TOOLS_MOD_FILE) gosec $(GOSEC_OPT) ./...
 
 .PHONY: gosec-report
-gosec-report: tools
-	@$(TOOLS_DIR)/gosec $(GOSEC_REPORT_OPT) ./...
+gosec-report:
+	@go tool -modfile $(TOOLS_MOD_FILE) gosec $(GOSEC_REPORT_OPT) ./...
 
 .PHONY: test
-test: tools tidy go-lint check-license-headers
+test: tidy go-lint check-license-headers
 	@echo "Running tests"
-	@$(TOOLS_DIR)/gotestsum --packages="./..."
+	@go tool -modfile $(TOOLS_MOD_FILE) gotestsum --packages="./..."
 
 .PHONY: go-generate
-go-generate: tools
-	@PATH=$(TOOLS_DIR):$$PATH go generate ./...
+go-generate:
+	@go generate ./...
 	@gofmt -l -w .
 
 .PHONY: goimports
-goimports: goimports_tool gci_tool
-
-.PHONY: goimports_tool
-goimports_tool: tools
-	@$(TOOLS_DIR)/goimports -w ./
-
-.PHONY: gci_tool
-gci_tool: tools
-	$(TOOLS_DIR)/gci write $(GCI_OPT) $(SRC_AND_DOC)
+goimports:
+	@go tool -modfile $(TOOLS_MOD_FILE) goimports -w ./
+	@go tool -modfile $(TOOLS_MOD_FILE) gci write $(GCI_OPT) $(SRC_AND_DOC)
 
 .PHONY: check-license-headers
-check-license-headers: tools
+check-license-headers:
 	@echo "Checking license headers"
-	@$(TOOLS_DIR)/addlicense -check $(ADD_LICENSE_OPT) $(SRC_AND_SHELL) || (echo "License headers are missing. Please run 'make add-license-headers' to add them." && exit 1)
+	@go tool -modfile $(TOOLS_MOD_FILE) addlicense \
+		-check $(ADD_LICENSE_OPT) $(SRC_AND_SHELL) || \
+		(echo "License headers are missing. Please run 'make add-license-headers' to add them." && exit 1)
 
 .PHONY: add-license-headers
-add-license-headers: tools
-	@$(TOOLS_DIR)/addlicense $(ADD_LICENSE_OPT) $(SRC_AND_SHELL)
-
-.PHONY: tools
-tools:
-	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools
+add-license-headers:
+	@go tool -modfile $(TOOLS_MOD_FILE) addlicense $(ADD_LICENSE_OPT) $(SRC_AND_SHELL)

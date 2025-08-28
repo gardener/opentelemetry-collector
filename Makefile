@@ -20,7 +20,7 @@ GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -f
 #########################################
 BIN_DIR                     := $(REPO_ROOT)/bin
 BUILD_DIR                   := $(REPO_ROOT)/_build
-TOOLS_DIR                   := $(abspath $(REPO_ROOT)/_tools)
+TOOLS_MOD_FILE              := $(REPO_ROOT)/internal/tools/go.mod
 COMPONENT_DIRS              := $(shell find . -mindepth 2 \
 						-type f -name "go.mod" \
 						-not -path "./internal/tools/*" \
@@ -61,7 +61,7 @@ go-check:
 		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-check"; \
 	fi
 
-go-generate: tools
+go-generate:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
 		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"; \
 	fi
@@ -95,12 +95,13 @@ go-sec-report:
 # E.g. `$ gosec dir1/...` fails with a nil error. Thus, we manually change cur dir
 # before running gosec.
 .PHONY: go-sec-report-build
-go-sec-report-build: tools build
-	cd $(BUILD_DIR) && $(TOOLS_DIR)/gosec $(GOSEC_REPORT_OPT) ./...
+go-sec-report-build: build
+	@cd $(BUILD_DIR) && \
+		go tool -modfile $(TOOLS_MOD_FILE) gosec $(GOSEC_REPORT_OPT) ./...
 
-generate-distribution: builder-tool
+generate-distribution:
 	@echo "Generating opentelemetry collector distribution"
-	$(REPO_ROOT)/_tools/builder \
+	@go tool -modfile $(TOOLS_MOD_FILE) builder \
 		--skip-get-modules \
 		--skip-compilation \
 		--config $(REPO_ROOT)/manifest.yml
@@ -118,15 +119,6 @@ clean:
 	@rm -rf $(REPO_ROOT)/_build
 	@rm -f $(BIN_DIR)/$(NAME)
 
-tools:
-	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools create-tools
-
-builder-tool:
-	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools $(TOOLS_DIR)/builder
-
-clean-tools:
-	@$(MAKE) --no-print-directory -C $(REPO_ROOT)/internal/tools clean-tools
-
 docker-image:
 	@echo "Building opentelemetry collector container image"
 	@docker build \
@@ -137,4 +129,4 @@ docker-image:
 		-t "$(IMAGE_REPOSITORY):latest" \
 		.
 
-.PHONY: all build clean clean-tools docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test tools verify-extended builder-tool go-sec-report-build
+.PHONY: all build clean docker-image generate-distribution go-generate go-fmt go-sec go-sec-report go-test verify-extended go-sec-report-build

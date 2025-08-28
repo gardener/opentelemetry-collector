@@ -57,6 +57,16 @@ jobs:
           - name: opentelemetry-collector
             target: collector
             oci-repository: gardener/observability/opentelemetry-collector
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: protected
+                authentication_enforced: false
+                user_interaction: gardener-operator
+                confidentiality_requirement: high
+                integrity_requirement: high
+                availability_requirement: high
+
     with:
       name: ${{ matrix.args.name }}
       version: ${{ needs.prepare.outputs.version }}

@@ -44,7 +44,7 @@ linters:
     # See the dedicated "linters.settings" documentation section.
     revive:
       # minimal confidence for issues, default is 0.8
-      min-confidence: 0.8
+      confidence: 0.8
       rules:
         # Blank import should be only in a main or test package, or have a comment justifying it.
         - name: blank-imports
@@ -96,7 +96,7 @@ linters:
       # Default is to use a neutral variety of English.
       # Setting locale to US will correct the British spelling of 'colour' to 'color'.
       locale: US
-      ignore-words:
+      ignore-rules:
         - cancelled
         - metre
         - meter

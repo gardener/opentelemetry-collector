@@ -101,7 +101,7 @@ go-sec-report-build: build
 
 generate-distribution:
 	@echo "Generating opentelemetry collector distribution"
-	@go tool -modfile $(TOOLS_MOD_FILE) builder \
+	@env dist.version=$(EFFECTIVE_VERSION) go tool -modfile $(TOOLS_MOD_FILE) builder \
 		--skip-get-modules \
 		--skip-compilation \
 		--config $(REPO_ROOT)/manifest.yml

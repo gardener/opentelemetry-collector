@@ -1,0 +1,13 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  opentelemetry-collector-reviewers:
+  - Bobi-Wan
+  - dnaeon
+  - nickytd
+  - rrhubenov
+  opentelemetry-collector-approvers:
+  - Bobi-Wan
+  - dnaeon
+  - nickytd
+  - rrhubenov

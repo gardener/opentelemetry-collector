@@ -6,8 +6,16 @@ aliases:
   - dnaeon
   - nickytd
   - rrhubenov
+  - rickardsjp
+  - chrkl
+  - vicwicker
+  - istvanballok
   opentelemetry-collector-approvers:
   - Bobi-Wan
   - dnaeon
   - nickytd
   - rrhubenov
+  - rickardsjp
+  - chrkl
+  - vicwicker
+  - istvanballok

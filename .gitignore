@@ -5,3 +5,5 @@ _build/
 
 # generate reports
 gosec-report.sarif
+
+.idea

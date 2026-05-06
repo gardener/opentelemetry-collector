@@ -160,10 +160,6 @@ func TestEmitShoots(t *testing.T) {
 	id, ok := attributes.Get("gardener.shoot.technical_id")
 	require.True(t, ok, "missing gardener.shoot.technical_id attribute")
 	require.Equal(t, "shoot--dev--test-shoot", id.Str(), "unexpected gardener.shoot.technical_id attribute")
-
-	hibernated, ok := attributes.Get("gardener.shoot.hibernated")
-	require.True(t, ok, "missing gardener.shoot.hibernated attribute")
-	require.False(t, hibernated.Bool(), "unexpected gardener.shoot.hibernated attribute")
 }
 
 func TestEmitShootOperations(t *testing.T) {

@@ -202,7 +202,6 @@ func (r *gardenerReceiver) collectShootInfoMetrics(sm *pmetric.ScopeMetrics, now
 		dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 		dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 		dp.Attributes().PutStr("gardener.shoot.purpose", purpose)
-		dp.Attributes().PutBool("gardener.shoot.hibernated", shoot.Status.IsHibernated)
 		dp.Attributes().PutBool("gardener.shoot.workerless", shoot.Spec.Provider.Workers == nil)
 		dp.Attributes().PutBool("gardener.shoot.is_seed", isSeed)
 		dp.Attributes().PutStr("gardener.shoot.failure_tolerance", failureTol)

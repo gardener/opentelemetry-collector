@@ -71,11 +71,7 @@ func (r *gardenerReceiver) collectSeedCapacityMetrics(sm *pmetric.ScopeMetrics, 
 			dp.SetTimestamp(now)
 			dp.SetIntValue(resource.Value())
 			dp.Attributes().PutStr("gardener.seed.name", seed.Name)
-			dp.Attributes().PutStr("cloud.provider", seed.Spec.Provider.Type)
-			dp.Attributes().PutStr("cloud.region", seed.Spec.Provider.Region)
 			dp.Attributes().PutStr("gardener.seed.resource", kind.String())
-			dp.Attributes().PutBool("gardener.seed.visible", isVisible(seed))
-			dp.Attributes().PutBool("gardener.seed.protected", isProtected(seed))
 		}
 	}
 
@@ -134,11 +130,7 @@ func (r *gardenerReceiver) collectSeedAllocatableMetrics(sm *pmetric.ScopeMetric
 			dp.SetTimestamp(now)
 			dp.SetIntValue(resource.Value())
 			dp.Attributes().PutStr("gardener.seed.name", seed.Name)
-			dp.Attributes().PutStr("cloud.provider", seed.Spec.Provider.Type)
-			dp.Attributes().PutStr("cloud.region", seed.Spec.Provider.Region)
 			dp.Attributes().PutStr("gardener.seed.resource", kind.String())
-			dp.Attributes().PutBool("gardener.seed.visible", isVisible(seed))
-			dp.Attributes().PutBool("gardener.seed.protected", isProtected(seed))
 		}
 	}
 }

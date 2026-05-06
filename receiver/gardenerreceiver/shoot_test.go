@@ -323,11 +323,7 @@ func TestEmitShootConditions(t *testing.T) {
 
 	md := pmetric.NewMetrics()
 	sm := gardenerReceiver.initScopeMetrics(&md)
-	gardenerReceiver.collectShootConditions(&sm, nowTimestamp(), shootLookups{
-		managedSeedShoots:  map[string]struct{}{},
-		seedByName:         map[string]*corev1beta1.Seed{},
-		projectByNamespace: map[string]projectBillingInfo{},
-	})
+	gardenerReceiver.collectShootConditions(&sm, nowTimestamp())
 
 	require.Equal(t, 0, consumer.DataPointCount(), "unexpected data points")
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")

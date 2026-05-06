@@ -322,7 +322,7 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 	}
 }
 
-func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now pcommon.Timestamp, l shootLookups) {
+func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	shootList := r.shootInformer.GetStore().List()
 	if len(shootList) == 0 {
 		r.logger.Debug("No shoots found")
@@ -343,19 +343,6 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 			operationType = string(shoot.Status.LastOperation.Type)
 		}
 
-		_, isSeed := l.managedSeedShoots[shoot.Name]
-		seedName := ptr.Deref(shoot.Spec.SeedName, "")
-		seedIaaS, seedRegion := "", ""
-		if seed, ok := l.seedByName[seedName]; ok {
-			seedIaaS = seed.Spec.Provider.Type
-			seedRegion = seed.Spec.Provider.Region
-		}
-
-		purpose := ""
-		if shoot.Spec.Purpose != nil {
-			purpose = string(*shoot.Spec.Purpose)
-		}
-
 		shootHasUserErrors := hasUserErrors(shoot.Status.LastErrors)
 		isCompliant := getMaintenancePreconditionsStatus(shoot)
 
@@ -365,18 +352,12 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 			dp.SetIntValue(1)
 			dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
+			dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
+			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 			dp.Attributes().PutStr("gardener.condition.type", string(condition.Type))
 			dp.Attributes().PutStr("gardener.condition.status", string(condition.Status))
 			dp.Attributes().PutStr("gardener.condition.reason", condition.Reason)
 			dp.Attributes().PutStr("gardener.operation.type", operationType)
-			dp.Attributes().PutStr("gardener.shoot.purpose", purpose)
-			dp.Attributes().PutBool("gardener.shoot.is_seed", isSeed)
-			dp.Attributes().PutStr("cloud.provider", shoot.Spec.Provider.Type)
-			dp.Attributes().PutStr("gardener.seed.name", seedName)
-			dp.Attributes().PutStr("gardener.seed.iaas", seedIaaS)
-			dp.Attributes().PutStr("gardener.seed.region", seedRegion)
-			dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
-			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 			dp.Attributes().PutBool("gardener.shoot.has_user_errors", shootHasUserErrors)
 			dp.Attributes().PutStr("gardener.shoot.is_compliant", isCompliant)
 		}

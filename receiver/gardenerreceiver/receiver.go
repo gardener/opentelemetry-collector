@@ -11,6 +11,8 @@ import (
 
 	gardenerclientset "github.com/gardener/gardener/pkg/client/core/clientset/versioned"
 	gardenerinformers "github.com/gardener/gardener/pkg/client/core/informers/externalversions"
+	securityclientset "github.com/gardener/gardener/pkg/client/security/clientset/versioned"
+	securityinformers "github.com/gardener/gardener/pkg/client/security/informers/externalversions"
 	seedmanagementclientset "github.com/gardener/gardener/pkg/client/seedmanagement/clientset/versioned"
 	seedmanagementinformers "github.com/gardener/gardener/pkg/client/seedmanagement/informers/externalversions"
 	"go.opentelemetry.io/collector/component"
@@ -35,13 +37,16 @@ type gardenerReceiver struct {
 	logger         *zap.Logger
 	gardenerClient gardenerclientset.Interface
 	seedMgmtClient seedmanagementclientset.Interface
+	securityClient securityclientset.Interface
 	obsrecv        *receiverhelper.ObsReport
 
-	shootInformer       cache.SharedIndexInformer
-	seedInformer        cache.SharedIndexInformer
-	projectInformer     cache.SharedIndexInformer
-	managedSeedInformer cache.SharedIndexInformer
-	gardenletInformer   cache.SharedIndexInformer
+	shootInformer              cache.SharedIndexInformer
+	seedInformer               cache.SharedIndexInformer
+	projectInformer            cache.SharedIndexInformer
+	managedSeedInformer        cache.SharedIndexInformer
+	gardenletInformer          cache.SharedIndexInformer
+	secretBindingInformer      cache.SharedIndexInformer
+	credentialsBindingInformer cache.SharedIndexInformer
 }
 
 func newGardenerReceiver(
@@ -74,6 +79,12 @@ func newGardenerReceiver(
 		return nil, fmt.Errorf("failed to create seedmanagement client: %w", err)
 	}
 
+	// Create Security clientset (for CredentialsBindings)
+	securityClient, err := securityclientset.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create security client: %w", err)
+	}
+
 	obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
 		ReceiverID:             settings.ID,
 		Transport:              "",
@@ -90,6 +101,7 @@ func newGardenerReceiver(
 		logger:         settings.Logger,
 		gardenerClient: gardenerClient,
 		seedMgmtClient: seedMgmtClient,
+		securityClient: securityClient,
 		obsrecv:        obsrecv,
 	}
 
@@ -121,6 +133,31 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 		}
 
 		r.logger.Info("Shoot informer caches synced successfully")
+
+		// Set up binding informers for billing resolution.
+		// SecretBindings and CredentialsBindings live in the same namespace as shoots
+		// but may reference credentials in other namespaces. We watch the shoot namespace.
+		bindingFactory := gardenerinformers.NewSharedInformerFactoryWithOptions(
+			r.gardenerClient,
+			r.config.SyncPeriod,
+			gardenerinformers.WithNamespace(r.config.Namespace),
+		)
+		r.secretBindingInformer = bindingFactory.Core().V1beta1().SecretBindings().Informer()
+		bindingFactory.Start(ctx.Done())
+
+		securityFactory := securityinformers.NewSharedInformerFactoryWithOptions(
+			r.securityClient,
+			r.config.SyncPeriod,
+			securityinformers.WithNamespace(r.config.Namespace),
+		)
+		r.credentialsBindingInformer = securityFactory.Security().V1alpha1().CredentialsBindings().Informer()
+		securityFactory.Start(ctx.Done())
+
+		r.logger.Info("Waiting for binding informer caches to sync")
+		if !cache.WaitForCacheSync(ctx.Done(), r.secretBindingInformer.HasSynced, r.credentialsBindingInformer.HasSynced) {
+			return fmt.Errorf("failed to sync binding informer caches")
+		}
+		r.logger.Info("Binding informer caches synced successfully")
 	}
 
 	if r.config.HasSeedResource() || r.config.HasProjectResource() {

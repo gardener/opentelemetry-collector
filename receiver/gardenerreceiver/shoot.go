@@ -5,11 +5,13 @@
 package gardenerreceiver
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	corev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	seedmanagementv1alpha1 "github.com/gardener/gardener/pkg/apis/seedmanagement/v1alpha1"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -37,6 +39,10 @@ type shootLookups struct {
 	seedByName map[string]*corev1beta1.Seed
 	// projectByNamespace maps shoot namespace to billing/owner info from the Project.
 	projectByNamespace map[string]projectBillingInfo
+	// secretBindingRefNS maps "namespace/name" to the SecretRef.Namespace of a SecretBinding.
+	secretBindingRefNS map[string]string
+	// credentialsBindingRefNS maps "namespace/name" to the CredentialsRef.Namespace of a CredentialsBinding.
+	credentialsBindingRefNS map[string]string
 }
 
 type projectBillingInfo struct {
@@ -48,9 +54,11 @@ type projectBillingInfo struct {
 // buildShootLookups constructs the cross-informer lookup maps once per collection cycle.
 func (r *gardenerReceiver) buildShootLookups() shootLookups {
 	l := shootLookups{
-		managedSeedShoots:  map[string]struct{}{},
-		seedByName:         map[string]*corev1beta1.Seed{},
-		projectByNamespace: map[string]projectBillingInfo{},
+		managedSeedShoots:       map[string]struct{}{},
+		seedByName:              map[string]*corev1beta1.Seed{},
+		projectByNamespace:      map[string]projectBillingInfo{},
+		secretBindingRefNS:      map[string]string{},
+		credentialsBindingRefNS: map[string]string{},
 	}
 
 	if r.managedSeedInformer != nil {
@@ -86,7 +94,44 @@ func (r *gardenerReceiver) buildShootLookups() shootLookups {
 		}
 	}
 
+	if r.secretBindingInformer != nil {
+		for _, item := range r.secretBindingInformer.GetStore().List() {
+			sb := item.(*corev1beta1.SecretBinding) //nolint:staticcheck // SA1019
+			key := fmt.Sprintf("%s/%s", sb.Namespace, sb.Name)
+			l.secretBindingRefNS[key] = sb.SecretRef.Namespace
+		}
+	}
+
+	if r.credentialsBindingInformer != nil {
+		for _, item := range r.credentialsBindingInformer.GetStore().List() {
+			cb := item.(*securityv1alpha1.CredentialsBinding)
+			key := fmt.Sprintf("%s/%s", cb.Namespace, cb.Name)
+			l.credentialsBindingRefNS[key] = cb.CredentialsRef.Namespace
+		}
+	}
+
 	return l
+}
+
+// resolveBillingInfo resolves the billing project for a shoot by following the
+// credentials binding indirection. A shoot's billing info comes from the project
+// that owns the referenced credentials, not necessarily the shoot's own project.
+func (l *shootLookups) resolveBillingInfo(shoot *corev1beta1.Shoot) projectBillingInfo {
+	projectNS := shoot.Namespace
+
+	if shoot.Spec.CredentialsBindingName != nil {
+		key := fmt.Sprintf("%s/%s", shoot.Namespace, *shoot.Spec.CredentialsBindingName)
+		if ns, ok := l.credentialsBindingRefNS[key]; ok {
+			projectNS = ns
+		}
+	} else if shoot.Spec.SecretBindingName != nil { //nolint:staticcheck // SA1019
+		key := fmt.Sprintf("%s/%s", shoot.Namespace, *shoot.Spec.SecretBindingName) //nolint:staticcheck // SA1019
+		if ns, ok := l.secretBindingRefNS[key]; ok {
+			projectNS = ns
+		}
+	}
+
+	return l.projectByNamespace[projectNS]
 }
 
 func hasUserErrors(lastErrors []corev1beta1.LastError) bool {
@@ -140,7 +185,7 @@ func (r *gardenerReceiver) collectShootInfoMetrics(sm *pmetric.ScopeMetrics, now
 		if shoot.Spec.ControlPlane != nil && shoot.Spec.ControlPlane.HighAvailability != nil {
 			failureTol = string(shoot.Spec.ControlPlane.HighAvailability.FailureTolerance.Type)
 		}
-		pi := l.projectByNamespace[shoot.Namespace]
+		pi := l.resolveBillingInfo(shoot)
 
 		dp := gauge.DataPoints().AppendEmpty()
 		dp.SetTimestamp(now)

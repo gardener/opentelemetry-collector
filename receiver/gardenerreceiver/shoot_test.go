@@ -8,9 +8,12 @@ import (
 	"testing"
 
 	corev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	seedmanagementv1alpha1 "github.com/gardener/gardener/pkg/apis/seedmanagement/v1alpha1"
 	gardenerfake "github.com/gardener/gardener/pkg/client/core/clientset/versioned/fake"
 	gardenerinformers "github.com/gardener/gardener/pkg/client/core/informers/externalversions"
+	securityfake "github.com/gardener/gardener/pkg/client/security/clientset/versioned/fake"
+	securityinformers "github.com/gardener/gardener/pkg/client/security/informers/externalversions"
 	seedmanagementfake "github.com/gardener/gardener/pkg/client/seedmanagement/clientset/versioned/fake"
 	seedmanagementinformers "github.com/gardener/gardener/pkg/client/seedmanagement/informers/externalversions"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +23,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -617,15 +621,20 @@ func newShootLookupReceiver(t *testing.T) *gardenerReceiver {
 	seedMgmtClient := seedmanagementfake.NewSimpleClientset()
 	seedMgmtFactory := seedmanagementinformers.NewSharedInformerFactory(seedMgmtClient, 0)
 
+	securityClient := securityfake.NewSimpleClientset()
+	securityFactory := securityinformers.NewSharedInformerFactory(securityClient, 0)
+
 	r := &gardenerReceiver{
-		config:              &Config{Kubeconfig: "/tmp/fake", Resources: []string{"shoots"}},
-		settings:            receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:            new(consumertest.MetricsSink),
-		logger:              zap.NewNop(),
-		shootInformer:       gardenFactory.Core().V1beta1().Shoots().Informer(),
-		seedInformer:        gardenFactory.Core().V1beta1().Seeds().Informer(),
-		projectInformer:     gardenFactory.Core().V1beta1().Projects().Informer(),
-		managedSeedInformer: seedMgmtFactory.Seedmanagement().V1alpha1().ManagedSeeds().Informer(),
+		config:                     &Config{Kubeconfig: "/tmp/fake", Resources: []string{"shoots"}},
+		settings:                   receivertest.NewNopSettings(component.MustNewType("gardener")),
+		consumer:                   new(consumertest.MetricsSink),
+		logger:                     zap.NewNop(),
+		shootInformer:              gardenFactory.Core().V1beta1().Shoots().Informer(),
+		seedInformer:               gardenFactory.Core().V1beta1().Seeds().Informer(),
+		projectInformer:            gardenFactory.Core().V1beta1().Projects().Informer(),
+		managedSeedInformer:        seedMgmtFactory.Seedmanagement().V1alpha1().ManagedSeeds().Informer(),
+		secretBindingInformer:      gardenFactory.Core().V1beta1().SecretBindings().Informer(),
+		credentialsBindingInformer: securityFactory.Security().V1alpha1().CredentialsBindings().Informer(),
 	}
 	return r
 }
@@ -636,6 +645,8 @@ func TestBuildShootLookups_Empty(t *testing.T) {
 	assert.Empty(t, l.managedSeedShoots)
 	assert.Empty(t, l.seedByName)
 	assert.Empty(t, l.projectByNamespace)
+	assert.Empty(t, l.secretBindingRefNS)
+	assert.Empty(t, l.credentialsBindingRefNS)
 }
 
 func TestBuildShootLookups_ManagedSeed(t *testing.T) {
@@ -721,6 +732,348 @@ func TestBuildShootLookups_ProjectNilNamespace(t *testing.T) {
 
 	l := r.buildShootLookups()
 	assert.Empty(t, l.projectByNamespace, "project without Namespace must not add an entry")
+}
+
+func TestResolveBillingInfo_ViaCredentialsBinding(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	// Project A owns the shoot
+	projA := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "project-a",
+			Annotations: map[string]string{"billing.gardener.cloud/costObject": "CO-A"},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-a"),
+			Owner:     &rbacv1.Subject{Name: "owner-a"},
+		},
+	}
+	// Project B owns the credentials
+	projB := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-b",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-B",
+				"billing.gardener.cloud/costObjectType": "CostCenter",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-b"),
+			Owner:     &rbacv1.Subject{Name: "owner-b"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(projA))
+	require.NoError(t, r.projectInformer.GetStore().Add(projB))
+
+	// CredentialsBinding in garden-a references credentials in garden-b
+	cb := &securityv1alpha1.CredentialsBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-creds", Namespace: "garden-a"},
+		CredentialsRef: corev1.ObjectReference{
+			Namespace: "garden-b",
+			Name:      "my-secret",
+		},
+	}
+	require.NoError(t, r.credentialsBindingInformer.GetStore().Add(cb))
+
+	l := r.buildShootLookups()
+
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-shoot", Namespace: "garden-a"},
+		Spec:       corev1beta1.ShootSpec{CredentialsBindingName: ptr.To("my-creds")},
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-B", pi.costObject, "billing should come from credentials-owning project B")
+	assert.Equal(t, "CostCenter", pi.costObjectType)
+	assert.Equal(t, "owner-b", pi.costObjectOwner)
+}
+
+func TestResolveBillingInfo_ViaSecretBinding(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	projA := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "project-a",
+			Annotations: map[string]string{"billing.gardener.cloud/costObject": "CO-A"},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-a"),
+			Owner:     &rbacv1.Subject{Name: "owner-a"},
+		},
+	}
+	projC := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-c",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-C",
+				"billing.gardener.cloud/costObjectType": "WBS",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-c"),
+			Owner:     &rbacv1.Subject{Name: "owner-c"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(projA))
+	require.NoError(t, r.projectInformer.GetStore().Add(projC))
+
+	// SecretBinding in garden-a references a secret in garden-c
+	sb := &corev1beta1.SecretBinding{ //nolint:staticcheck // SA1019
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-binding", Namespace: "garden-a"},
+		SecretRef:  corev1.SecretReference{Namespace: "garden-c", Name: "infra-secret"},
+	}
+	require.NoError(t, r.secretBindingInformer.GetStore().Add(sb))
+
+	l := r.buildShootLookups()
+
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-shoot", Namespace: "garden-a"},
+		Spec:       corev1beta1.ShootSpec{SecretBindingName: ptr.To("legacy-binding")}, //nolint:staticcheck // SA1019
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-C", pi.costObject, "billing should come from secret-owning project C")
+	assert.Equal(t, "WBS", pi.costObjectType)
+	assert.Equal(t, "owner-c", pi.costObjectOwner)
+}
+
+func TestResolveBillingInfo_FallbackToShootNamespace(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	proj := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-own",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-OWN",
+				"billing.gardener.cloud/costObjectType": "IO",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-own"),
+			Owner:     &rbacv1.Subject{Name: "owner-own"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(proj))
+
+	l := r.buildShootLookups()
+
+	// Shoot with no binding references at all
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "workerless-shoot", Namespace: "garden-own"},
+		Spec:       corev1beta1.ShootSpec{},
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-OWN", pi.costObject, "billing should fall back to shoot's own project")
+	assert.Equal(t, "IO", pi.costObjectType)
+	assert.Equal(t, "owner-own", pi.costObjectOwner)
+}
+
+func TestResolveBillingInfo_BindingNotFound(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	proj := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "project-x",
+			Annotations: map[string]string{"billing.gardener.cloud/costObject": "CO-X"},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-x"),
+			Owner:     &rbacv1.Subject{Name: "owner-x"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(proj))
+
+	l := r.buildShootLookups()
+
+	// Shoot references a CredentialsBinding that doesn't exist in the informer
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "orphan-shoot", Namespace: "garden-x"},
+		Spec:       corev1beta1.ShootSpec{CredentialsBindingName: ptr.To("missing-binding")},
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-X", pi.costObject, "should fall back to shoot namespace when binding not found")
+}
+
+func TestResolveBillingInfo_SameNamespaceCredentialsBinding(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	proj := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "project-same",
+			Annotations: map[string]string{"billing.gardener.cloud/costObject": "CO-SAME"},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-same"),
+			Owner:     &rbacv1.Subject{Name: "owner-same"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(proj))
+
+	cb := &securityv1alpha1.CredentialsBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "local-creds", Namespace: "garden-same"},
+		CredentialsRef: corev1.ObjectReference{
+			Namespace: "garden-same",
+			Name:      "local-secret",
+		},
+	}
+	require.NoError(t, r.credentialsBindingInformer.GetStore().Add(cb))
+
+	l := r.buildShootLookups()
+
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "same-ns-shoot", Namespace: "garden-same"},
+		Spec:       corev1beta1.ShootSpec{CredentialsBindingName: ptr.To("local-creds")},
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-SAME", pi.costObject, "billing should resolve to same project when binding references the same namespace")
+	assert.Equal(t, "owner-same", pi.costObjectOwner)
+}
+
+func TestResolveBillingInfo_SameNamespaceSecretBinding(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	proj := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-local",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-LOCAL",
+				"billing.gardener.cloud/costObjectType": "WBS",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-local"),
+			Owner:     &rbacv1.Subject{Name: "owner-local"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(proj))
+
+	sb := &corev1beta1.SecretBinding{ //nolint:staticcheck // SA1019
+		ObjectMeta: metav1.ObjectMeta{Name: "local-sb", Namespace: "garden-local"},
+		SecretRef:  corev1.SecretReference{Namespace: "garden-local", Name: "local-infra-secret"},
+	}
+	require.NoError(t, r.secretBindingInformer.GetStore().Add(sb))
+
+	l := r.buildShootLookups()
+
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "local-shoot", Namespace: "garden-local"},
+		Spec:       corev1beta1.ShootSpec{SecretBindingName: ptr.To("local-sb")}, //nolint:staticcheck // SA1019
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-LOCAL", pi.costObject, "billing should resolve to same project when secret binding references the same namespace")
+	assert.Equal(t, "WBS", pi.costObjectType)
+	assert.Equal(t, "owner-local", pi.costObjectOwner)
+}
+
+func TestResolveBillingInfo_CostObjectFromBindingProjectOverridesShootProject(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	// Shoot's own project has a costObject
+	projShoot := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-shoot",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-SHOOT",
+				"billing.gardener.cloud/costObjectType": "IO",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-shoot"),
+			Owner:     &rbacv1.Subject{Name: "owner-shoot"},
+		},
+	}
+	// Binding's project also has a costObject — this one should win
+	projCreds := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-creds",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-CREDS",
+				"billing.gardener.cloud/costObjectType": "CostCenter",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-creds"),
+			Owner:     &rbacv1.Subject{Name: "owner-creds"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(projShoot))
+	require.NoError(t, r.projectInformer.GetStore().Add(projCreds))
+
+	cb := &securityv1alpha1.CredentialsBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cross-creds", Namespace: "garden-shoot"},
+		CredentialsRef: corev1.ObjectReference{
+			Namespace: "garden-creds",
+			Name:      "infra-secret",
+		},
+	}
+	require.NoError(t, r.credentialsBindingInformer.GetStore().Add(cb))
+
+	l := r.buildShootLookups()
+
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "billed-shoot", Namespace: "garden-shoot"},
+		Spec:       corev1beta1.ShootSpec{CredentialsBindingName: ptr.To("cross-creds")},
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-CREDS", pi.costObject, "billing should come from the credentials-owning project, not the shoot's project")
+	assert.Equal(t, "CostCenter", pi.costObjectType)
+	assert.Equal(t, "owner-creds", pi.costObjectOwner)
+}
+
+func TestResolveBillingInfo_CostObjectFromSecretBindingProjectOverridesShootProject(t *testing.T) {
+	r := newShootLookupReceiver(t)
+
+	projShoot := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-s",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-S",
+				"billing.gardener.cloud/costObjectType": "WBS",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-s"),
+			Owner:     &rbacv1.Subject{Name: "owner-s"},
+		},
+	}
+	projSecret := &corev1beta1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "project-sec",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO-SEC",
+				"billing.gardener.cloud/costObjectType": "IO",
+			},
+		},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("garden-sec"),
+			Owner:     &rbacv1.Subject{Name: "owner-sec"},
+		},
+	}
+	require.NoError(t, r.projectInformer.GetStore().Add(projShoot))
+	require.NoError(t, r.projectInformer.GetStore().Add(projSecret))
+
+	sb := &corev1beta1.SecretBinding{ //nolint:staticcheck // SA1019
+		ObjectMeta: metav1.ObjectMeta{Name: "cross-sb", Namespace: "garden-s"},
+		SecretRef:  corev1.SecretReference{Namespace: "garden-sec", Name: "infra-secret"},
+	}
+	require.NoError(t, r.secretBindingInformer.GetStore().Add(sb))
+
+	l := r.buildShootLookups()
+
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-billed", Namespace: "garden-s"},
+		Spec:       corev1beta1.ShootSpec{SecretBindingName: ptr.To("cross-sb")}, //nolint:staticcheck // SA1019
+	}
+
+	pi := l.resolveBillingInfo(shoot)
+	assert.Equal(t, "CO-SEC", pi.costObject, "billing should come from the secret-owning project, not the shoot's project")
+	assert.Equal(t, "IO", pi.costObjectType)
+	assert.Equal(t, "owner-sec", pi.costObjectOwner)
 }
 
 // ---------------------------------------------------------------------------

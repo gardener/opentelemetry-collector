@@ -205,7 +205,6 @@ func (r *gardenerReceiver) collectShootInfoMetrics(sm *pmetric.ScopeMetrics, now
 		dp.Attributes().PutBool("gardener.shoot.workerless", shoot.Spec.Provider.Workers == nil)
 		dp.Attributes().PutBool("gardener.shoot.is_seed", isSeed)
 		dp.Attributes().PutStr("gardener.shoot.failure_tolerance", failureTol)
-		dp.Attributes().PutStr("gardener.shoot.status", shoot.Labels[corev1beta1constants.ShootStatus])
 		dp.Attributes().PutStr("gardener.cost_object", pi.costObject)
 		dp.Attributes().PutStr("gardener.cost_object_type", pi.costObjectType)
 		dp.Attributes().PutStr("gardener.cost_object_owner", pi.costObjectOwner)
@@ -380,6 +379,42 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 			dp.Attributes().PutBool("gardener.shoot.has_user_errors", shootHasUserErrors)
 			dp.Attributes().PutStr("gardener.shoot.is_compliant", isCompliant)
+		}
+	}
+}
+
+func (r *gardenerReceiver) collectShootStatusMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	shootList := r.shootInformer.GetStore().List()
+	if len(shootList) == 0 {
+		r.logger.Debug("No shoots found")
+		return
+	}
+
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.shoot.status")
+	metric.SetDescription("Status of a Gardener shoot")
+	metric.SetUnit("")
+	gauge := metric.SetEmptyGauge()
+
+	statusValues := []string{"healthy", "progressing", "unhealthy", "unknown"}
+
+	for _, item := range shootList {
+		shoot := item.(*corev1beta1.Shoot)
+
+		actualStatus := shoot.Labels[corev1beta1constants.ShootStatus]
+
+		for _, status := range statusValues {
+			dp := gauge.DataPoints().AppendEmpty()
+			dp.SetTimestamp(now)
+			if status == actualStatus {
+				dp.SetIntValue(1)
+			} else {
+				dp.SetIntValue(0)
+			}
+			dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
+			dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
+			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
+			dp.Attributes().PutStr("gardener.shoot.status", status)
 		}
 	}
 }

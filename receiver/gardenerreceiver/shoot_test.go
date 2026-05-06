@@ -359,6 +359,89 @@ func TestEmitShootConditions(t *testing.T) {
 	require.Equal(t, "TestReason", conditionReason.Str(), "unexpected condition.reason attribute")
 }
 
+func TestEmitShootStatus(t *testing.T) {
+	fakeClient := gardenerfake.NewSimpleClientset()
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-shoot",
+			Namespace: "garden-dev",
+			Labels: map[string]string{
+				"shoot.gardener.cloud/status": "healthy",
+			},
+		},
+		Spec: corev1beta1.ShootSpec{
+			Provider: corev1beta1.Provider{
+				Type: "test-provider",
+				Workers: []corev1beta1.Worker{
+					{Name: "test-worker"},
+				},
+			},
+			Region: "test-region",
+			Kubernetes: corev1beta1.Kubernetes{
+				Version: "1.26.0",
+			},
+			SeedName: ptr.To("test-seed"),
+		},
+		Status: corev1beta1.ShootStatus{
+			TechnicalID: "shoot--dev--test-shoot",
+		},
+	}
+
+	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
+	informer := factory.Core().V1beta1().Shoots().Informer()
+	err := informer.GetStore().Add(shoot)
+	require.NoError(t, err, "failed to add shoot to informer store")
+
+	set := receivertest.NewNopSettings(component.MustNewType("gardener"))
+	consumer := new(consumertest.MetricsSink)
+	cfg := &Config{
+		Kubeconfig: "/tmp/fake-kubeconfig-for-testing",
+		Resources:  []string{"shoot"},
+	}
+
+	gardenerReceiver := &gardenerReceiver{
+		config:        cfg,
+		settings:      set,
+		consumer:      consumer,
+		shootInformer: informer,
+		logger:        zap.NewNop(),
+	}
+
+	md := pmetric.NewMetrics()
+	sm := gardenerReceiver.initScopeMetrics(&md)
+	gardenerReceiver.collectShootStatusMetric(&sm, nowTimestamp())
+
+	require.Equal(t, 0, consumer.DataPointCount(), "unexpected data points")
+	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
+	require.Equal(t, 4, md.DataPointCount(), "unexpected data point count")
+	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
+	require.Equal(t, "garden.shoot.status", metrics.Name(), "unexpected metric name")
+
+	statusValues := []string{"healthy", "progressing", "unhealthy", "unknown"}
+	for i, status := range statusValues {
+		dp := metrics.Gauge().DataPoints().At(i)
+		attributes := dp.Attributes()
+
+		name, ok := attributes.Get("gardener.shoot.name")
+		require.True(t, ok, "missing name attribute")
+		require.Equal(t, "test-shoot", name.Str(), "unexpected name attribute")
+
+		project, ok := attributes.Get("gardener.project.name")
+		require.True(t, ok, "missing project attribute")
+		require.Equal(t, "dev", project.Str(), "unexpected project attribute")
+
+		statusAttr, ok := attributes.Get("gardener.shoot.status")
+		require.True(t, ok, "missing status attribute")
+		require.Equal(t, status, statusAttr.Str(), "unexpected status attribute")
+
+		if status == "healthy" {
+			require.Equal(t, int64(1), dp.IntValue(), "expected value 1 for active status")
+		} else {
+			require.Equal(t, int64(0), dp.IntValue(), "expected value 0 for inactive status")
+		}
+	}
+}
+
 func TestEmitShootNodeMetrics(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	shoot := &corev1beta1.Shoot{

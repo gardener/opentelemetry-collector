@@ -267,6 +267,7 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 		r.collectShootHibernatedMetric(&sm, now)
 		r.collectShootCreationTimestamp(&sm, now)
 		r.collectShootConditions(&sm, now, l)
+		r.collectShootStatusMetric(&sm, now)
 		r.collectShootOperationStates(&sm, now)
 		r.collectShootNodeMetrics(&sm, now)
 		r.collectShootOperationsTotal(&sm, now)

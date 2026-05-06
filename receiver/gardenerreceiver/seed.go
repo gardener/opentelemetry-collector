@@ -47,7 +47,7 @@ func (r *gardenerReceiver) collectSeedInfoMetrics(sm *pmetric.ScopeMetrics, now 
 		zap.Int("seed_count", len(seedList)))
 }
 
-func (r *gardenerReceiver) emitSeedCapacityMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+func (r *gardenerReceiver) collectSeedCapacityMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	seedList := r.seedInformer.GetStore().List()
 
 	if len(seedList) == 0 {

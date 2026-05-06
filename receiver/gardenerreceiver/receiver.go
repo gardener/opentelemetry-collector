@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	gardenerversioned "github.com/gardener/gardener/pkg/client/core/clientset/versioned"
+	gardenerclientset "github.com/gardener/gardener/pkg/client/core/clientset/versioned"
 	gardenerinformers "github.com/gardener/gardener/pkg/client/core/informers/externalversions"
 	seedmanagementclientset "github.com/gardener/gardener/pkg/client/seedmanagement/clientset/versioned"
 	seedmanagementinformers "github.com/gardener/gardener/pkg/client/seedmanagement/informers/externalversions"
@@ -33,7 +33,7 @@ type gardenerReceiver struct {
 	consumer       consumer.Metrics
 	cancel         context.CancelFunc
 	logger         *zap.Logger
-	gardenerClient gardenerversioned.Interface
+	gardenerClient gardenerclientset.Interface
 	seedMgmtClient seedmanagementclientset.Interface
 	obsrecv        *receiverhelper.ObsReport
 
@@ -44,7 +44,7 @@ type gardenerReceiver struct {
 	gardenletInformer   cache.SharedIndexInformer
 }
 
-func newReceiver(
+func newGardenerReceiver(
 	_ context.Context,
 	settings receiver.Settings,
 	cfg component.Config,
@@ -63,7 +63,7 @@ func newReceiver(
 	}
 
 	// Create Gardener clientset
-	gardenerClient, err := gardenerversioned.NewForConfig(config)
+	gardenerClient, err := gardenerclientset.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gardener client: %w", err)
 	}
@@ -128,26 +128,31 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 		// share a single factory to avoid duplicate list/watch connections.
 		clusterScopedFactory := gardenerinformers.NewSharedInformerFactory(r.gardenerClient, r.config.SyncPeriod)
 
-		var toSync []cache.InformerSynced
-
 		if r.config.HasSeedResource() {
 			r.seedInformer = clusterScopedFactory.Core().V1beta1().Seeds().Informer()
-			toSync = append(toSync, r.seedInformer.HasSynced)
 		}
 
 		if r.config.HasProjectResource() {
 			r.projectInformer = clusterScopedFactory.Core().V1beta1().Projects().Informer()
-			toSync = append(toSync, r.projectInformer.HasSynced)
 		}
 
 		clusterScopedFactory.Start(ctx.Done())
 
-		r.logger.Info("Waiting for cluster-scoped informer caches to sync")
-		if !cache.WaitForCacheSync(ctx.Done(), toSync...) {
-			return fmt.Errorf("failed to sync cluster-scoped informer caches")
+		if r.config.HasSeedResource() {
+			r.logger.Info("Waiting for seed informer caches to sync")
+			if !cache.WaitForCacheSync(ctx.Done(), r.seedInformer.HasSynced) {
+				return fmt.Errorf("failed to sync seed informer caches")
+			}
+			r.logger.Info("Seed informer caches synced successfully")
 		}
 
-		r.logger.Info("Cluster-scoped informer caches synced successfully")
+		if r.config.HasProjectResource() {
+			r.logger.Info("Waiting for project informer caches to sync")
+			if !cache.WaitForCacheSync(ctx.Done(), r.projectInformer.HasSynced) {
+				return fmt.Errorf("failed to sync project informer caches")
+			}
+			r.logger.Info("Project informer caches synced successfully")
+		}
 	}
 
 	if r.config.HasManagedSeedResource() || r.config.HasGardenletResource() {
@@ -233,7 +238,7 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 
 	if r.config.HasSeedResource() {
 		r.collectSeedInfoMetrics(&sm, now)
-		r.emitSeedCapacityMetrics(&sm, now)
+		r.collectSeedCapacityMetrics(&sm, now)
 		r.collectSeedConditions(&sm, now)
 		r.collectSeedAllocatableMetrics(&sm, now)
 		r.collectSeedOperationStates(&sm, now)

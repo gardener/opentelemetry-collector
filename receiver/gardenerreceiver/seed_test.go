@@ -376,7 +376,7 @@ func TestEmitSeedCapacity(t *testing.T) {
 
 	md := pmetric.NewMetrics()
 	sm := gardenerReceiver.initScopeMetrics(&md)
-	gardenerReceiver.emitSeedCapacityMetrics(&sm, nowTimestamp())
+	gardenerReceiver.collectSeedCapacityMetrics(&sm, nowTimestamp())
 
 	require.Equal(t, 0, consumer.DataPointCount(), "unexpected data points")
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")

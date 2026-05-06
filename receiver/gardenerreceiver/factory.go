@@ -5,11 +5,9 @@
 package gardenerreceiver
 
 import (
-	"context"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
 )
 
@@ -25,19 +23,10 @@ func createDefaultConfig() component.Config {
 	}
 }
 
-func createMetricsReceiver(
-	ctx context.Context,
-	set receiver.Settings,
-	cfg component.Config,
-	consumer consumer.Metrics,
-) (receiver.Metrics, error) {
-	return newReceiver(ctx, set, cfg, consumer)
-}
-
 func NewFactory() receiver.Factory {
 	return receiver.NewFactory(
 		component.MustNewType(typeStr),
 		createDefaultConfig,
-		receiver.WithMetrics(createMetricsReceiver, component.StabilityLevelAlpha),
+		receiver.WithMetrics(newGardenerReceiver, component.StabilityLevelAlpha),
 	)
 }

@@ -168,6 +168,7 @@ func TestEmitShootOperations(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-shoot",
 			Namespace: "garden-dev",
+			UID:       "shoot-uid-123",
 		},
 		Spec: corev1beta1.ShootSpec{
 			Provider: corev1beta1.Provider{
@@ -255,6 +256,10 @@ func TestEmitShootOperations(t *testing.T) {
 	require.True(t, ok, "missing state attribute")
 	require.Equal(t, "Succeeded", state.Str(), "unexpected state attribute")
 
+	uid, ok := attributes.Get("gardener.shoot.uid")
+	require.True(t, ok, "missing uid attribute")
+	require.Equal(t, "shoot-uid-123", uid.Str(), "unexpected uid attribute")
+
 	require.Equal(t, int64(1), reconcileDp.IntValue(), "active operation should have value 1")
 
 	// Verify progress metric contains the right progress for the Reconcile operation.
@@ -276,6 +281,7 @@ func TestEmitShootConditions(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-shoot",
 			Namespace: "garden-dev",
+			UID:       "shoot-uid-456",
 		},
 		Spec: corev1beta1.ShootSpec{
 			Provider: corev1beta1.Provider{
@@ -342,6 +348,10 @@ func TestEmitShootConditions(t *testing.T) {
 	require.True(t, ok, "missing project attribute")
 	require.Equal(t, "dev", project.Str(), "unexpected project attribute")
 
+	uid, ok := attributes.Get("gardener.shoot.uid")
+	require.True(t, ok, "missing uid attribute")
+	require.Equal(t, "shoot-uid-456", uid.Str(), "unexpected uid attribute")
+
 	conditionType, ok := attributes.Get("gardener.condition.type")
 	require.True(t, ok, "missing condition.type attribute")
 	require.Equal(t, "TestCondition", conditionType.Str(), "unexpected condition.type attribute")
@@ -361,6 +371,7 @@ func TestEmitShootStatus(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-shoot",
 			Namespace: "garden-dev",
+			UID:       "shoot-uid-789",
 			Labels: map[string]string{
 				"shoot.gardener.cloud/status": "healthy",
 			},
@@ -426,6 +437,10 @@ func TestEmitShootStatus(t *testing.T) {
 		require.True(t, ok, "missing project attribute")
 		require.Equal(t, "dev", project.Str(), "unexpected project attribute")
 
+		uid, ok := attributes.Get("gardener.shoot.uid")
+		require.True(t, ok, "missing uid attribute")
+		require.Equal(t, "shoot-uid-789", uid.Str(), "unexpected uid attribute")
+
 		statusAttr, ok := attributes.Get("gardener.shoot.status")
 		require.True(t, ok, "missing status attribute")
 		require.Equal(t, status, statusAttr.Str(), "unexpected status attribute")
@@ -444,6 +459,7 @@ func TestEmitShootNodeMetrics(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-shoot",
 			Namespace: "garden-dev",
+			UID:       "shoot-uid-node",
 		},
 		Spec: corev1beta1.ShootSpec{
 			Provider: corev1beta1.Provider{
@@ -512,6 +528,10 @@ func TestEmitShootNodeMetrics(t *testing.T) {
 	machineType, ok := minWorkerMetric.Gauge().DataPoints().At(0).Attributes().Get("gardener.worker.machine.type")
 	require.True(t, ok, "missing worker attribute for machine type")
 	require.Equal(t, "test-type", machineType.Str(), "unexpected machine type attribute")
+
+	uid, ok := minWorkerMetric.Gauge().DataPoints().At(0).Attributes().Get("gardener.shoot.uid")
+	require.True(t, ok, "missing uid attribute for min worker metric")
+	require.Equal(t, "shoot-uid-node", uid.Str(), "unexpected uid attribute for min worker metric")
 
 	maxWorkerMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(1)
 	require.Equal(t, "garden.shoot.worker.max", maxWorkerMetric.Name(), "unexpected metric name")

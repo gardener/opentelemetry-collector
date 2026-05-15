@@ -299,6 +299,7 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 			statesDp.SetTimestamp(now)
 			statesDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			statesDp.Attributes().PutStr("gardener.project.name", project)
+			statesDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 			statesDp.Attributes().PutStr("gardener.operation.type", string(opType))
 			statesDp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 
@@ -306,6 +307,7 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 			progressDp.SetTimestamp(now)
 			progressDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			progressDp.Attributes().PutStr("gardener.project.name", project)
+			progressDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 			progressDp.Attributes().PutStr("gardener.operation.type", string(opType))
 			progressDp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 
@@ -394,6 +396,7 @@ func (r *gardenerReceiver) collectShootStatusMetric(sm *pmetric.ScopeMetrics, no
 			}
 			dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
+			dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 			dp.Attributes().PutStr("gardener.shoot.status", status)
 		}
@@ -451,6 +454,7 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 			minWorkerDp.SetIntValue(int64(worker.Minimum))
 			minWorkerDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			minWorkerDp.Attributes().PutStr("gardener.project.name", project)
+			minWorkerDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 			minWorkerDp.Attributes().PutStr("gardener.worker.name", worker.Name)
 			minWorkerDp.Attributes().PutStr("gardener.worker.machine.type", worker.Machine.Type)
 			minWorkerDp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
@@ -461,6 +465,7 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 			maxWorkerDp.SetIntValue(int64(worker.Maximum))
 			maxWorkerDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			maxWorkerDp.Attributes().PutStr("gardener.project.name", project)
+			maxWorkerDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 			maxWorkerDp.Attributes().PutStr("gardener.worker.name", worker.Name)
 			maxWorkerDp.Attributes().PutStr("gardener.worker.machine.type", worker.Machine.Type)
 			maxWorkerDp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
@@ -488,6 +493,7 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 					shootNodeInfoGaugeDp.SetIntValue(1)
 					shootNodeInfoGaugeDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 					shootNodeInfoGaugeDp.Attributes().PutStr("gardener.project.name", project)
+					shootNodeInfoGaugeDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 					shootNodeInfoGaugeDp.Attributes().PutStr("gardener.worker.name", worker.Name)
 					shootNodeInfoGaugeDp.Attributes().PutStr("gardener.worker.machine.image.name", worker.Machine.Image.Name)
 					shootNodeInfoGaugeDp.Attributes().PutStr("gardener.worker.machine.image.version", imageVersion)
@@ -505,6 +511,7 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 		minNodesDp.SetIntValue(int64(minNodes))
 		minNodesDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 		minNodesDp.Attributes().PutStr("gardener.project.name", project)
+		minNodesDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 		minNodesDp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 
 		maxNodesDp := maxNodesGauge.DataPoints().AppendEmpty()
@@ -512,6 +519,7 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 		maxNodesDp.SetIntValue(int64(maxNodes))
 		maxNodesDp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 		maxNodesDp.Attributes().PutStr("gardener.project.name", project)
+		maxNodesDp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 		maxNodesDp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 	}
 }

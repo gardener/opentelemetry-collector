@@ -547,7 +547,7 @@ func TestEmitShootNodeMetrics(t *testing.T) {
 	require.Equal(t, "test-type", machineType.Str(), "unexpected machine type attribute")
 
 	shootNodeInfoMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(2)
-	require.Equal(t, "garden.shoot.node", shootNodeInfoMetric.Name(), "unexpected metric name")
+	require.Equal(t, "garden.shoot.node.info", shootNodeInfoMetric.Name(), "unexpected metric name")
 	require.Equal(t, 1, shootNodeInfoMetric.Gauge().DataPoints().Len(), "unexpected data point count for shoot node info metric")
 	require.Equal(t, int64(1), shootNodeInfoMetric.Gauge().DataPoints().At(0).IntValue(), "unexpected shoot node info metric value")
 

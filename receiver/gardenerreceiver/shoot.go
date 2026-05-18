@@ -424,9 +424,9 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 	maxWorkerGauge := maxWorkerMetric.SetEmptyGauge()
 
 	shootNodeInfoMetric := sm.Metrics().AppendEmpty()
-	shootNodeInfoMetric.SetName("garden.shoot.node")
+	shootNodeInfoMetric.SetName("garden.shoot.node.info")
 	shootNodeInfoMetric.SetDescription("Information about worker pools in Gardener shoots")
-	shootNodeInfoMetric.SetUnit("{node}")
+	shootNodeInfoMetric.SetUnit("")
 	shootNodeInfoGauge := shootNodeInfoMetric.SetEmptyGauge()
 
 	minNodesMetric := sm.Metrics().AppendEmpty()

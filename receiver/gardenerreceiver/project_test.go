@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func newProjectReceiver(t *testing.T, projects ...*corev1beta1.Project) *gardenerReceiver {
@@ -53,7 +54,10 @@ func TestCollectProjectMetrics_Empty(t *testing.T) {
 func TestCollectProjectMetrics(t *testing.T) {
 	project := &corev1beta1.Project{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-project"},
-		Status:     corev1beta1.ProjectStatus{Phase: corev1beta1.ProjectReady},
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: ptr.To("default"),
+		},
+		Status: corev1beta1.ProjectStatus{Phase: corev1beta1.ProjectReady},
 	}
 	r := newProjectReceiver(t, project)
 	md := pmetric.NewMetrics()
@@ -72,6 +76,9 @@ func TestCollectProjectMetrics(t *testing.T) {
 	phase, ok := dp.Attributes().Get("gardener.project.phase")
 	require.True(t, ok)
 	require.Equal(t, "Ready", phase.Str())
+	namespace, ok := dp.Attributes().Get("gardener.project.namespace")
+	require.True(t, ok)
+	require.Equal(t, "default", namespace.Str())
 }
 
 func TestCollectUserMetrics(t *testing.T) {

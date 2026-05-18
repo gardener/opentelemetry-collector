@@ -32,6 +32,9 @@ func (r *gardenerReceiver) collectProjectMetrics(sm *pmetric.ScopeMetrics, now p
 		dp.SetIntValue(1)
 		dp.Attributes().PutStr("gardener.project.name", project.Name)
 		dp.Attributes().PutStr("gardener.project.phase", string(project.Status.Phase))
+		if project.Spec.Namespace != nil {
+			dp.Attributes().PutStr("gardener.project.namespace", *project.Spec.Namespace)
+		}
 	}
 }
 

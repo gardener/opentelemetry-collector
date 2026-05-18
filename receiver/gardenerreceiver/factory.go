@@ -18,7 +18,7 @@ const (
 func createDefaultConfig() component.Config {
 	return &Config{
 		SyncPeriod:         time.Hour,
-		Resources:          []string{"shoots", "seeds"},
+		Resources:          validResources,
 		CollectionInterval: 30 * time.Second,
 	}
 }

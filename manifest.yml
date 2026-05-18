@@ -43,6 +43,7 @@ receivers:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sobjectsreceiver v0.146.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver v0.146.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.146.0
+  - gomod: github.com/gardener/opentelemetry-collector/receiver/gardenerreceiver v0.0.0
 
 
 
@@ -65,3 +66,6 @@ connectors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/countconnector v0.146.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/routingconnector v0.146.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.146.0
+
+replaces:
+  - github.com/gardener/opentelemetry-collector/receiver/gardenerreceiver => ../receiver/gardenerreceiver

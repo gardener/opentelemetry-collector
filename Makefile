@@ -53,42 +53,42 @@ $(COMPONENT_DIRS):
 
 add-license-headers:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="add-license-headers"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="add-license-headers"; \
 	fi
 
 go-check:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-check"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="go-check"; \
 	fi
 
 go-generate:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="go-generate"; \
 	fi
 
 go-fmt:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="go-fmt"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="go-fmt"; \
 	fi
 
 go-test:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="test"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="test"; \
 	fi
 
 go-imports:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="goimports"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="goimports"; \
 	fi
 
 go-sec:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="gosec"; \
 	fi
 
 go-sec-report:
 	@if [ -n "$(COMPONENT_DIRS)" ]; then \
-		@$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"; \
+		$(MAKE) $(COMPONENT_DIRS) TARGET="gosec-report"; \
 	fi
 
 # For some reaosn, gosec has issues when trying to reference a directory that isn't '.'.

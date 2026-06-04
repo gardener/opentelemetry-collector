@@ -24,10 +24,13 @@ import (
 func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 	shoot := &corev1beta1.Shoot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              "my-shoot",
-			Namespace:         "garden-dev",
-			UID:               "abc-123",
-			Labels:            map[string]string{"shoot.gardener.cloud/status": "healthy"},
+			Name:      "my-shoot",
+			Namespace: "garden-dev",
+			UID:       "abc-123",
+			Labels: map[string]string{
+				"shoot.gardener.cloud/status": "healthy",
+				"unused":                      "drop-me",
+			},
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: corev1beta1.ShootSpec{
@@ -120,7 +123,7 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 
 	assert.Equal(t, "my-shoot", s.Name)
 	assert.Equal(t, "garden-dev", s.Namespace)
-	assert.Equal(t, "healthy", s.Labels["shoot.gardener.cloud/status"])
+	assert.Equal(t, map[string]string{"shoot.gardener.cloud/status": "healthy"}, s.Labels)
 	assert.NotEmpty(t, s.CreationTimestamp)
 	assert.Equal(t, "aws", s.Spec.Provider.Type)
 	assert.Equal(t, "eu-west-1", s.Spec.Region)
@@ -163,9 +166,13 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 	shoot := &corev1beta1.Shoot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            "my-shoot",
-			Namespace:       "garden-dev",
-			ManagedFields:   []metav1.ManagedFieldsEntry{{Manager: "gardener"}},
+			Name:          "my-shoot",
+			Namespace:     "garden-dev",
+			ManagedFields: []metav1.ManagedFieldsEntry{{Manager: "gardener"}},
+			Labels: map[string]string{
+				"shoot.gardener.cloud/status": "progressing",
+				"foo":                         "bar",
+			},
 			Annotations:     map[string]string{"foo": "bar"},
 			Finalizers:      []string{"gardener"},
 			OwnerReferences: []metav1.OwnerReference{{Name: "owner"}},
@@ -264,6 +271,7 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 
 	// ObjectMeta stripped
 	assert.Nil(t, s.ManagedFields)
+	assert.Equal(t, map[string]string{"shoot.gardener.cloud/status": "progressing"}, s.Labels)
 	assert.Nil(t, s.Annotations)
 	assert.Nil(t, s.Finalizers)
 	assert.Nil(t, s.OwnerReferences)
@@ -391,7 +399,7 @@ func TestTransformShoot_UnknownType(t *testing.T) {
 
 func TestTransformSeed_RetainsUsedFields(t *testing.T) {
 	seed := &corev1beta1.Seed{
-		ObjectMeta: metav1.ObjectMeta{Name: "seed-1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "seed-1", Labels: map[string]string{"unused": "drop-me"}},
 		Spec: corev1beta1.SeedSpec{
 			Provider: corev1beta1.SeedProvider{
 				Type:   "aws",
@@ -419,6 +427,7 @@ func TestTransformSeed_RetainsUsedFields(t *testing.T) {
 	s := result.(*corev1beta1.Seed)
 
 	assert.Equal(t, "seed-1", s.Name)
+	assert.Nil(t, s.Labels)
 	assert.Equal(t, "aws", s.Spec.Provider.Type)
 	assert.Equal(t, "eu-west-1", s.Spec.Provider.Region)
 	assert.Len(t, s.Spec.Taints, 1)
@@ -471,7 +480,7 @@ func TestTransformSeed_StripsUnusedFields(t *testing.T) {
 
 	assert.Nil(t, s.ManagedFields)
 	assert.Nil(t, s.Annotations)
-	assert.Equal(t, map[string]string{"l": "v"}, s.Labels)
+	assert.Nil(t, s.Labels)
 	assert.Nil(t, s.Finalizers)
 	assert.Nil(t, s.OwnerReferences)
 	assert.Nil(t, s.Spec.Backup)
@@ -493,8 +502,13 @@ func TestTransformSeed_StripsUnusedFields(t *testing.T) {
 func TestTransformProject_RetainsUsedFields(t *testing.T) {
 	project := &corev1beta1.Project{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "my-project",
-			Annotations: map[string]string{"billing.gardener.cloud/costObject": "CO123", "billing.gardener.cloud/costObjectType": "IO"},
+			Name: "my-project",
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO123",
+				"billing.gardener.cloud/costObjectType": "IO",
+				"unused":                                "drop-me",
+			},
+			Labels: map[string]string{"unused": "drop-me"},
 		},
 		Spec: corev1beta1.ProjectSpec{
 			Namespace: ptr.To("garden-my-project"),
@@ -514,8 +528,11 @@ func TestTransformProject_RetainsUsedFields(t *testing.T) {
 	p := result.(*corev1beta1.Project)
 
 	assert.Equal(t, "my-project", p.Name)
-	assert.Equal(t, "CO123", p.Annotations["billing.gardener.cloud/costObject"])
-	assert.Equal(t, "IO", p.Annotations["billing.gardener.cloud/costObjectType"])
+	assert.Equal(t, map[string]string{
+		"billing.gardener.cloud/costObject":     "CO123",
+		"billing.gardener.cloud/costObjectType": "IO",
+	}, p.Annotations)
+	assert.Nil(t, p.Labels)
 	assert.Equal(t, ptr.To("garden-my-project"), p.Spec.Namespace)
 	assert.Equal(t, "owner@example.com", p.Spec.Owner.Name)
 	assert.Len(t, p.Spec.Members, 2)
@@ -527,8 +544,13 @@ func TestTransformProject_RetainsUsedFields(t *testing.T) {
 func TestTransformProject_StripsUnusedFields(t *testing.T) {
 	project := &corev1beta1.Project{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            "my-project",
-			ManagedFields:   []metav1.ManagedFieldsEntry{{Manager: "g"}},
+			Name:          "my-project",
+			ManagedFields: []metav1.ManagedFieldsEntry{{Manager: "g"}},
+			Annotations: map[string]string{
+				"billing.gardener.cloud/costObject":     "CO123",
+				"billing.gardener.cloud/costObjectType": "IO",
+				"unused":                                "drop-me",
+			},
 			Labels:          map[string]string{"l": "v"},
 			Finalizers:      []string{"f"},
 			OwnerReferences: []metav1.OwnerReference{{Name: "o"}},
@@ -557,7 +579,11 @@ func TestTransformProject_StripsUnusedFields(t *testing.T) {
 	p := result.(*corev1beta1.Project)
 
 	assert.Nil(t, p.ManagedFields)
-	assert.Equal(t, map[string]string{"l": "v"}, p.Labels)
+	assert.Equal(t, map[string]string{
+		"billing.gardener.cloud/costObject":     "CO123",
+		"billing.gardener.cloud/costObjectType": "IO",
+	}, p.Annotations)
+	assert.Nil(t, p.Labels)
 	assert.Nil(t, p.Finalizers)
 	assert.Nil(t, p.OwnerReferences)
 	assert.Nil(t, p.Spec.Description)
@@ -605,7 +631,7 @@ func TestTransformSecretBinding_RetainsAndStrips(t *testing.T) {
 	assert.Equal(t, "garden-dev", s.Namespace)
 	assert.Equal(t, "garden-billing", s.SecretRef.Namespace)
 	assert.Nil(t, s.ManagedFields)
-	assert.Equal(t, map[string]string{"l": "v"}, s.Labels)
+	assert.Nil(t, s.Labels)
 	assert.Nil(t, s.Annotations)
 	assert.Nil(t, s.Finalizers)
 	assert.Nil(t, s.Provider)
@@ -638,7 +664,7 @@ func TestTransformCredentialsBinding_RetainsAndStrips(t *testing.T) {
 	assert.Equal(t, "garden-dev", c.Namespace)
 	assert.Equal(t, "garden-billing", c.CredentialsRef.Namespace)
 	assert.Nil(t, c.ManagedFields)
-	assert.Equal(t, map[string]string{"l": "v"}, c.Labels)
+	assert.Nil(t, c.Labels)
 	assert.Nil(t, c.Annotations)
 	assert.Nil(t, c.Finalizers)
 	assert.Equal(t, securityv1alpha1.CredentialsBindingProvider{}, c.Provider)
@@ -670,7 +696,7 @@ func TestTransformManagedSeed_RetainsAndStrips(t *testing.T) {
 	assert.Equal(t, "ms-1", m.Name)
 	assert.Equal(t, "my-shoot", m.Spec.Shoot.Name)
 	assert.Nil(t, m.ManagedFields)
-	assert.Equal(t, map[string]string{"l": "v"}, m.Labels)
+	assert.Nil(t, m.Labels)
 	assert.Nil(t, m.Annotations)
 	assert.Nil(t, m.Finalizers)
 	assert.Equal(t, seedmanagementv1alpha1.GardenletConfig{}, m.Spec.Gardenlet)
@@ -705,7 +731,7 @@ func TestTransformGardenlet_RetainsAndStrips(t *testing.T) {
 	assert.Equal(t, int64(6), g.Status.ObservedGeneration)
 	assert.Len(t, g.Status.Conditions, 1)
 	assert.Nil(t, g.ManagedFields)
-	assert.Equal(t, map[string]string{"l": "v"}, g.Labels)
+	assert.Nil(t, g.Labels)
 	assert.Nil(t, g.Annotations)
 	assert.Nil(t, g.Finalizers)
 	assert.Equal(t, seedmanagementv1alpha1.GardenletSpec{}, g.Spec)

@@ -6,16 +6,39 @@ package gardenerreceiver
 
 import (
 	corev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	seedmanagementv1alpha1 "github.com/gardener/gardener/pkg/apis/seedmanagement/v1alpha1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	projectAnnotationCostObject     = "billing.gardener.cloud/costObject"
+	projectAnnotationCostObjectType = "billing.gardener.cloud/costObjectType"
+)
+
 // The transform functions below are registered via SharedInformerFactory's
 // WithTransform option and are invoked exactly once per object, before it is
 // inserted into the informer cache. That contract makes in-place mutation safe:
 // no consumer can observe the object until the transform returns.
+
+func retainStringMapKeys(m map[string]string, keys ...string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+
+	retained := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := m[key]; ok {
+			retained[key] = value
+		}
+	}
+	if len(retained) == 0 {
+		return nil
+	}
+	return retained
+}
 
 func transformShoot(obj any) (any, error) {
 	shoot, ok := obj.(*corev1beta1.Shoot)
@@ -24,6 +47,7 @@ func transformShoot(obj any) (any, error) {
 	}
 
 	shoot.ManagedFields = nil
+	shoot.Labels = retainStringMapKeys(shoot.Labels, corev1beta1constants.ShootStatus)
 	shoot.Annotations = nil
 	shoot.Finalizers = nil
 	shoot.OwnerReferences = nil
@@ -110,6 +134,7 @@ func transformSeed(obj any) (any, error) {
 	}
 
 	seed.ManagedFields = nil
+	seed.Labels = nil
 	seed.Annotations = nil
 	seed.Finalizers = nil
 	seed.OwnerReferences = nil
@@ -140,6 +165,8 @@ func transformProject(obj any) (any, error) {
 	}
 
 	project.ManagedFields = nil
+	project.Labels = nil
+	project.Annotations = retainStringMapKeys(project.Annotations, projectAnnotationCostObject, projectAnnotationCostObjectType)
 	project.Finalizers = nil
 	project.OwnerReferences = nil
 
@@ -169,6 +196,7 @@ func transformSecretBinding(obj any) (any, error) {
 	}
 
 	sb.ManagedFields = nil
+	sb.Labels = nil
 	sb.Annotations = nil
 	sb.Finalizers = nil
 	sb.OwnerReferences = nil
@@ -185,6 +213,7 @@ func transformCredentialsBinding(obj any) (any, error) {
 	}
 
 	cb.ManagedFields = nil
+	cb.Labels = nil
 	cb.Annotations = nil
 	cb.Finalizers = nil
 	cb.OwnerReferences = nil
@@ -201,6 +230,7 @@ func transformManagedSeed(obj any) (any, error) {
 	}
 
 	ms.ManagedFields = nil
+	ms.Labels = nil
 	ms.Annotations = nil
 	ms.Finalizers = nil
 	ms.OwnerReferences = nil
@@ -217,6 +247,7 @@ func transformGardenlet(obj any) (any, error) {
 	}
 
 	gl.ManagedFields = nil
+	gl.Labels = nil
 	gl.Annotations = nil
 	gl.Finalizers = nil
 	gl.OwnerReferences = nil

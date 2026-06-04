@@ -7,3 +7,5 @@ _build/
 gosec-report.sarif
 
 .idea
+
+receiver/gardenerreceiver/bench-memory.txt

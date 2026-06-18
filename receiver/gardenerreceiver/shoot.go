@@ -586,24 +586,22 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 	}
 
 	var (
-		hibernationEnabled     int64
-		hibernationScheduled   int64
-		maintenanceWindow      int64
-		autoUpdateK8s          int64
-		autoUpdateMachineImage int64
-		nginxIngressEnabled    int64
-		kubeDashboardEnabled   int64
-		multipleWorkerPools    int64
-		multiZoneWorkers       int64
-		customDomain           int64
-		workerTaints           int64
-		workerLabels           int64
-		workerAnnotations      int64
-		auditPolicyCount       int64
-		oidcConfigCount        int64
-		nodeCIDRMaskCount      int64
-		hpaKCMCount            int64
-		podPIDLimitCount       int64
+		hibernationEnabled            int64
+		hibernationScheduled          int64
+		maintenanceWindow             int64
+		autoUpdateK8s                 int64
+		autoUpdateMachineImage        int64
+		multipleWorkerPools           int64
+		multiZoneWorkers              int64
+		customDomain                  int64
+		workerTaints                  int64
+		workerLabels                  int64
+		workerAnnotations             int64
+		auditPolicyCount              int64
+		structuredAuthenticationCount int64
+		nodeCIDRMaskCount             int64
+		hpaKCMCount                   int64
+		podPIDLimitCount              int64
 	)
 
 	extensionCounts := map[string]int64{}
@@ -636,15 +634,6 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 				if shoot.Spec.Maintenance.AutoUpdate.MachineImageVersion != nil && *shoot.Spec.Maintenance.AutoUpdate.MachineImageVersion {
 					autoUpdateMachineImage++
 				}
-			}
-		}
-
-		if shoot.Spec.Addons != nil {
-			if shoot.Spec.Addons.NginxIngress != nil && shoot.Spec.Addons.NginxIngress.Enabled {
-				nginxIngressEnabled++
-			}
-			if shoot.Spec.Addons.KubernetesDashboard != nil && shoot.Spec.Addons.KubernetesDashboard.Enabled {
-				kubeDashboardEnabled++
 			}
 		}
 
@@ -702,8 +691,8 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 			if apiServer.AuditConfig != nil && apiServer.AuditConfig.AuditPolicy != nil {
 				auditPolicyCount++
 			}
-			if apiServer.OIDCConfig != nil { //nolint:staticcheck
-				oidcConfigCount++
+			if apiServer.StructuredAuthentication != nil && apiServer.StructuredAuthentication.ConfigMapName != "" {
+				structuredAuthenticationCount++
 			}
 			for fg, enabled := range apiServer.FeatureGates {
 				if enabled {
@@ -762,8 +751,6 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 		{"garden.shoots.maintenance.window_total", "Count of shoots with a maintenance window configured", maintenanceWindow},
 		{"garden.shoots.maintenance.autoupdate.k8s_version_total", "Count of shoots with auto-update for kubernetes versions configured", autoUpdateK8s},
 		{"garden.shoots.maintenance.autoupdate.image_version_total", "Count of shoots with auto-update for machine image versions configured", autoUpdateMachineImage},
-		{"garden.shoots.custom.addon.nginx_ingress_total", "Count of shoots with nginx ingress controller addon enabled", nginxIngressEnabled},
-		{"garden.shoots.custom.addon.kube_dashboard_total", "Count of shoots with kubernetes dashboard addon enabled", kubeDashboardEnabled},
 		{"garden.shoots.custom.worker.multiple_pools_total", "Count of shoots with multiple worker pools", multipleWorkerPools},
 		{"garden.shoots.custom.worker.multi_zones_total", "Count of shoots with multi zone worker pools", multiZoneWorkers},
 		{"garden.shoots.custom.network.custom_domain_total", "Count of shoots which use a custom DNS domain", customDomain},
@@ -771,7 +758,7 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 		{"garden.shoots.custom.worker.labels_total", "Count of shoots with worker pool labels", workerLabels},
 		{"garden.shoots.custom.worker.annotations_total", "Count of shoots with worker pool annotations", workerAnnotations},
 		{"garden.shoots.custom.apiserver.audit_policy_total", "Count of shoots with an audit log policy configured for the kube apiserver", auditPolicyCount},
-		{"garden.shoots.custom.apiserver.oidc_config_total", "Count of shoots with an OIDC configuration for the kube apiserver", oidcConfigCount},
+		{"garden.shoots.custom.apiserver.structured_authentication_total", "Count of shoots with a structured authentication configuration for the kube apiserver", structuredAuthenticationCount},
 		{"garden.shoots.custom.kcm.node_cidr_mask_size_total", "Count of shoots which have node CIDR mask size configured on the kube controller manager", nodeCIDRMaskCount},
 		{"garden.shoots.custom.kcm.horizontal_pod_autoscale_total", "Count of shoots with horizontal pod autoscaling for the kube controller manager", hpaKCMCount},
 		{"garden.shoots.custom.kubelet.pod_pid_limit_total", "Count of shoots which have a pod PID limit configured for the kubelet(s)", podPIDLimitCount},

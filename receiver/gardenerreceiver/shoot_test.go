@@ -662,10 +662,6 @@ func TestCollectShootCustomizationMetrics(t *testing.T) {
 					MachineImageVersion: ptr.To(true),
 				},
 			},
-			Addons: &corev1beta1.Addons{
-				NginxIngress:        &corev1beta1.NginxIngress{Addon: corev1beta1.Addon{Enabled: true}},
-				KubernetesDashboard: &corev1beta1.KubernetesDashboard{Addon: corev1beta1.Addon{Enabled: true}},
-			},
 		},
 	}
 
@@ -685,7 +681,7 @@ func TestCollectShootCustomizationMetrics(t *testing.T) {
 	sm := r.initScopeMetrics(&md)
 	r.collectShootCustomizationMetrics(&sm, nowTimestamp())
 
-	require.Equal(t, 18, md.MetricCount(), "expected 18 customization metrics")
+	require.Equal(t, 16, md.MetricCount(), "expected 16 customization metrics")
 
 	names := map[string]int64{}
 	for i := 0; i < md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().Len(); i++ {
@@ -698,8 +694,6 @@ func TestCollectShootCustomizationMetrics(t *testing.T) {
 	require.Equal(t, int64(1), names["garden.shoots.maintenance.window_total"])
 	require.Equal(t, int64(1), names["garden.shoots.maintenance.autoupdate.k8s_version_total"])
 	require.Equal(t, int64(1), names["garden.shoots.maintenance.autoupdate.image_version_total"])
-	require.Equal(t, int64(1), names["garden.shoots.custom.addon.nginx_ingress_total"])
-	require.Equal(t, int64(1), names["garden.shoots.custom.addon.kube_dashboard_total"])
 	require.Equal(t, int64(1), names["garden.shoots.custom.worker.multiple_pools_total"])
 	require.Equal(t, int64(1), names["garden.shoots.custom.worker.multi_zones_total"])
 }
@@ -1226,9 +1220,9 @@ func TestCollectShootCustomizationMetrics_NoOptionals(t *testing.T) {
 	}
 	names := collectCustomizationMetrics(t, shoot)
 	assert.Equal(t, int64(0), names["garden.shoots.hibernation.enabled_total"])
-	assert.Equal(t, int64(0), names["garden.shoots.custom.addon.nginx_ingress_total"])
+	assert.Equal(t, int64(0), names["garden.shoots.custom.apiserver.structured_authentication_total"])
 	assert.Equal(t, int64(0), names["garden.shoots.custom.worker.multiple_pools_total"])
-	assert.Equal(t, int64(18), int64(len(names)), "expected exactly 18 scalar metrics")
+	assert.Equal(t, int64(16), int64(len(names)), "expected exactly 16 scalar metrics")
 }
 
 func TestCollectShootCustomizationMetrics_FeatureGates(t *testing.T) {
@@ -1429,6 +1423,61 @@ func TestCollectShootCustomizationMetrics_Extensions(t *testing.T) {
 		}
 	}
 	t.Fatal("extensions metric not found")
+}
+
+func TestCollectShootCustomizationMetrics_StructuredAuthentication(t *testing.T) {
+	mkShoot := func(name string, sa *corev1beta1.StructuredAuthentication) *corev1beta1.Shoot {
+		return &corev1beta1.Shoot{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "garden-dev"},
+			Spec: corev1beta1.ShootSpec{
+				Provider: corev1beta1.Provider{Type: "aws"},
+				Region:   "eu-west-1",
+				Kubernetes: corev1beta1.Kubernetes{
+					Version: "1.28.0",
+					KubeAPIServer: &corev1beta1.KubeAPIServerConfig{
+						StructuredAuthentication: sa,
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name  string
+		sa    *corev1beta1.StructuredAuthentication
+		count int64
+	}{
+		{name: "configured", sa: &corev1beta1.StructuredAuthentication{ConfigMapName: "auth-cm"}, count: 1},
+		{name: "empty configmap name not counted", sa: &corev1beta1.StructuredAuthentication{ConfigMapName: ""}, count: 0},
+		{name: "nil not counted", sa: nil, count: 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			names := collectCustomizationMetrics(t, mkShoot("sa-shoot", tc.sa))
+			assert.Equal(t, tc.count, names["garden.shoots.custom.apiserver.structured_authentication_total"])
+		})
+	}
+}
+
+func TestCollectShootCustomizationMetrics_StructuredAuthentication_MultipleShoots(t *testing.T) {
+	// Three shoots: two with structured authentication configured, one without.
+	mkShoot := func(name string, sa *corev1beta1.StructuredAuthentication) *corev1beta1.Shoot {
+		return &corev1beta1.Shoot{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "garden-dev"},
+			Spec: corev1beta1.ShootSpec{
+				Provider:   corev1beta1.Provider{Type: "aws"},
+				Region:     "eu-west-1",
+				Kubernetes: corev1beta1.Kubernetes{Version: "1.28.0", KubeAPIServer: &corev1beta1.KubeAPIServerConfig{StructuredAuthentication: sa}},
+			},
+		}
+	}
+	names := collectCustomizationMetrics(t,
+		mkShoot("s1", &corev1beta1.StructuredAuthentication{ConfigMapName: "auth-cm-1"}),
+		mkShoot("s2", &corev1beta1.StructuredAuthentication{ConfigMapName: "auth-cm-2"}),
+		mkShoot("s3", nil),
+	)
+	assert.Equal(t, int64(2), names["garden.shoots.custom.apiserver.structured_authentication_total"])
 }
 
 // ---------------------------------------------------------------------------

@@ -20,8 +20,13 @@ const (
 
 // The transform functions below are registered via SharedInformerFactory's
 // WithTransform option and are invoked exactly once per object, before it is
-// inserted into the informer cache. That contract makes in-place mutation safe:
-// no consumer can observe the object until the transform returns.
+// inserted into the informer cache.
+//
+// Each transform constructs a fresh object and copies only the retained
+// fields. The original is dropped on return — its sub-objects become
+// unreachable and are reclaimed by the next GC cycle. This whitelist style
+// makes the contract explicit: a new field upstream is excluded by default
+// rather than silently retained.
 
 func retainStringMapKeys(m map[string]string, keys ...string) map[string]string {
 	if len(m) == 0 {
@@ -40,220 +45,259 @@ func retainStringMapKeys(m map[string]string, keys ...string) map[string]string 
 	return retained
 }
 
+// retainObjectMeta produces a new ObjectMeta carrying only the fields that
+// downstream metric collectors read. ManagedFields, Annotations, Finalizers,
+// OwnerReferences and Labels are intentionally dropped; callers that need
+// (filtered) Labels or Annotations populate them themselves.
+func retainObjectMeta(meta metav1.ObjectMeta) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:              meta.Name,
+		Namespace:         meta.Namespace,
+		UID:               meta.UID,
+		ResourceVersion:   meta.ResourceVersion,
+		Generation:        meta.Generation,
+		CreationTimestamp: meta.CreationTimestamp,
+	}
+}
+
 func transformShoot(obj any) (any, error) {
-	shoot, ok := obj.(*corev1beta1.Shoot)
+	src, ok := obj.(*corev1beta1.Shoot)
 	if !ok {
 		return obj, nil
 	}
 
-	shoot.ManagedFields = nil
-	shoot.Labels = retainStringMapKeys(shoot.Labels, corev1beta1constants.ShootStatus)
-	shoot.Annotations = nil
-	shoot.Finalizers = nil
-	shoot.OwnerReferences = nil
+	dst := &corev1beta1.Shoot{
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+	}
+	dst.Labels = retainStringMapKeys(src.Labels, corev1beta1constants.ShootStatus)
 
-	// Spec.Provider: keep Type, Region, Workers (partially)
-	shoot.Spec.Provider.InfrastructureConfig = nil
-	shoot.Spec.Provider.ControlPlaneConfig = nil
-	shoot.Spec.Provider.WorkersSettings = nil
-
-	for i := range shoot.Spec.Provider.Workers {
-		w := &shoot.Spec.Provider.Workers[i]
-		w.CABundle = nil
-		w.Kubernetes = nil
-		w.MaxSurge = nil
-		w.MaxUnavailable = nil
-		w.ProviderConfig = nil
-		w.Volume = nil
-		w.DataVolumes = nil
-		w.KubeletDataVolumeName = nil
-		w.SystemComponents = nil
-		w.MachineControllerManagerSettings = nil
-		w.Sysctls = nil
-		w.ClusterAutoscaler = nil
-		w.Priority = nil
-		w.UpdateStrategy = nil
-		w.ControlPlane = nil
+	dst.Spec = corev1beta1.ShootSpec{
+		Addons:                 src.Spec.Addons,
+		ControlPlane:           src.Spec.ControlPlane,
+		CredentialsBindingName: src.Spec.CredentialsBindingName,
+		DNS:                    src.Spec.DNS,
+		Extensions:             src.Spec.Extensions,
+		Hibernation:            src.Spec.Hibernation,
+		Kubernetes:             retainShootKubernetes(src.Spec.Kubernetes),
+		Maintenance:            src.Spec.Maintenance,
+		Provider:               retainShootProvider(src.Spec.Provider),
+		Purpose:                src.Spec.Purpose,
+		Region:                 src.Spec.Region,
+		SecretBindingName:      src.Spec.SecretBindingName, //nolint:staticcheck // SA1019
+		SeedName:               src.Spec.SeedName,
 	}
 
-	shoot.Spec.Networking = nil
-	shoot.Spec.Resources = nil
-	shoot.Spec.Tolerations = nil
-	shoot.Spec.SystemComponents = nil
-	shoot.Spec.CloudProfile = nil
-	shoot.Spec.CloudProfileName = nil //nolint:staticcheck // SA1019
-	shoot.Spec.ExposureClassName = nil
-	shoot.Spec.SchedulerName = nil
-
-	if shoot.Spec.Kubernetes.KubeAPIServer != nil {
-		kas := shoot.Spec.Kubernetes.KubeAPIServer
-		kas.ServiceAccountConfig = nil
-		kas.Requests = nil
-		kas.WatchCacheSizes = nil
-		kas.Logging = nil
-		kas.DefaultNotReadyTolerationSeconds = nil
-		kas.DefaultUnreachableTolerationSeconds = nil
-		kas.EventTTL = nil
-		kas.EncryptionConfig = nil
-		kas.StructuredAuthentication = nil
-		kas.StructuredAuthorization = nil
-		kas.Autoscaling = nil
-		kas.EnableAnonymousAuthentication = nil //nolint:staticcheck // SA1019
-		kas.RuntimeConfig = nil
-		kas.APIAudiences = nil
+	dst.Status = corev1beta1.ShootStatus{
+		Conditions:    src.Status.Conditions,
+		Constraints:   src.Status.Constraints,
+		Gardener:      src.Status.Gardener,
+		IsHibernated:  src.Status.IsHibernated,
+		LastErrors:    retainLastErrors(src.Status.LastErrors),
+		LastOperation: retainLastOperation(src.Status.LastOperation),
+		TechnicalID:   src.Status.TechnicalID,
+		UID:           src.Status.UID,
 	}
 
-	shoot.Status.AdvertisedAddresses = nil
-	shoot.Status.ClusterIdentity = nil
-	shoot.Status.Credentials = nil
-	shoot.Status.EncryptedResources = nil //nolint:staticcheck // SA1019
-	shoot.Status.ObservedGeneration = 0
-	shoot.Status.RetryCycleStartTime = nil
-	shoot.Status.SeedName = nil
-	shoot.Status.MigrationStartTime = nil
-	shoot.Status.LastHibernationTriggerTime = nil
-	shoot.Status.LastMaintenance = nil
-	shoot.Status.Networking = nil
-
-	if shoot.Status.LastOperation != nil {
-		shoot.Status.LastOperation.Description = ""
-		shoot.Status.LastOperation.LastUpdateTime = metav1.Time{}
-	}
-	for i := range shoot.Status.LastErrors {
-		shoot.Status.LastErrors[i].Description = ""
-		shoot.Status.LastErrors[i].TaskID = nil
-	}
-
-	return shoot, nil
+	return dst, nil
 }
 
-func transformSeed(obj any) (any, error) {
-	seed, ok := obj.(*corev1beta1.Seed)
-	if !ok {
-		return obj, nil
+// retainShootProvider keeps Type, Workers (selectively), and drops the heavy
+// InfrastructureConfig / ControlPlaneConfig / WorkersSettings raw extensions.
+func retainShootProvider(src corev1beta1.Provider) corev1beta1.Provider {
+	dst := corev1beta1.Provider{
+		Type: src.Type,
+	}
+	if src.Workers == nil {
+		return dst
 	}
 
-	seed.ManagedFields = nil
-	seed.Labels = nil
-	seed.Annotations = nil
-	seed.Finalizers = nil
-	seed.OwnerReferences = nil
-
-	seed.Spec.Backup = nil
-	seed.Spec.DNS = corev1beta1.SeedDNS{}
-	seed.Spec.Networks = corev1beta1.SeedNetworks{}
-	seed.Spec.Provider.ProviderConfig = nil
-	seed.Spec.Provider.Zones = nil
-	seed.Spec.Ingress = nil
-	seed.Spec.Volume = nil
-	seed.Spec.AccessRestrictions = nil
-	seed.Spec.Extensions = nil
-	seed.Spec.Resources = nil
-
-	seed.Status.Gardener = nil
-	seed.Status.ObservedGeneration = 0
-	seed.Status.ClusterIdentity = nil
-	seed.Status.ClientCertificateExpirationTimestamp = nil
-
-	return seed, nil
+	dst.Workers = make([]corev1beta1.Worker, len(src.Workers))
+	for i := range src.Workers {
+		s := &src.Workers[i]
+		dst.Workers[i] = corev1beta1.Worker{
+			Annotations: s.Annotations,
+			CRI:         s.CRI,
+			Labels:      s.Labels,
+			Machine:     s.Machine,
+			Maximum:     s.Maximum,
+			Minimum:     s.Minimum,
+			Name:        s.Name,
+			Taints:      s.Taints,
+			Zones:       s.Zones,
+		}
+	}
+	return dst
 }
 
-func transformProject(obj any) (any, error) {
-	project, ok := obj.(*corev1beta1.Project)
-	if !ok {
-		return obj, nil
+// retainShootKubernetes preserves the version and small per-component config
+// blocks, but trims KubeAPIServer to the fields that drive metrics
+// (admission plugins, audit policy presence, OIDC presence, feature gates
+// inside KubernetesConfig).
+func retainShootKubernetes(src corev1beta1.Kubernetes) corev1beta1.Kubernetes {
+	dst := corev1beta1.Kubernetes{
+		Version:               src.Version,
+		KubeControllerManager: src.KubeControllerManager,
+		KubeScheduler:         src.KubeScheduler,
+		Kubelet:               src.Kubelet,
+		KubeProxy:             src.KubeProxy,
 	}
 
-	project.ManagedFields = nil
-	project.Labels = nil
-	project.Annotations = retainStringMapKeys(project.Annotations, projectAnnotationCostObject, projectAnnotationCostObjectType)
-	project.Finalizers = nil
-	project.OwnerReferences = nil
-
-	project.Spec.Description = nil
-	project.Spec.Purpose = nil
-	project.Spec.CreatedBy = nil
-	project.Spec.Tolerations = nil
-
-	for i := range project.Spec.Members {
-		project.Spec.Members[i] = corev1beta1.ProjectMember{
-			Subject: rbacv1.Subject{Kind: project.Spec.Members[i].Kind},
+	if src.KubeAPIServer != nil {
+		s := src.KubeAPIServer
+		dst.KubeAPIServer = &corev1beta1.KubeAPIServerConfig{
+			KubernetesConfig: s.KubernetesConfig,
+			AdmissionPlugins: s.AdmissionPlugins,
+			AuditConfig:      s.AuditConfig,
+			OIDCConfig:       s.OIDCConfig, //nolint:staticcheck // SA1019
 		}
 	}
 
-	project.Status.ObservedGeneration = 0
-	project.Status.StaleSinceTimestamp = nil
-	project.Status.StaleAutoDeleteTimestamp = nil
-	project.Status.LastActivityTimestamp = nil
+	return dst
+}
 
-	return project, nil
+// retainLastOperation keeps Type/State/Progress for metric reporting and drops
+// the verbose Description and LastUpdateTime that bloat the cache.
+func retainLastOperation(src *corev1beta1.LastOperation) *corev1beta1.LastOperation {
+	if src == nil {
+		return nil
+	}
+	return &corev1beta1.LastOperation{
+		Type:     src.Type,
+		State:    src.State,
+		Progress: src.Progress,
+	}
+}
+
+// retainLastErrors keeps only Codes — the only field hasUserErrors consumes.
+func retainLastErrors(src []corev1beta1.LastError) []corev1beta1.LastError {
+	if src == nil {
+		return nil
+	}
+	dst := make([]corev1beta1.LastError, len(src))
+	for i := range src {
+		dst[i] = corev1beta1.LastError{
+			Codes: src[i].Codes,
+		}
+	}
+	return dst
+}
+
+func transformSeed(obj any) (any, error) {
+	src, ok := obj.(*corev1beta1.Seed)
+	if !ok {
+		return obj, nil
+	}
+
+	dst := &corev1beta1.Seed{
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+		Spec: corev1beta1.SeedSpec{
+			Provider: corev1beta1.SeedProvider{
+				Type:   src.Spec.Provider.Type,
+				Region: src.Spec.Provider.Region,
+			},
+			Settings: src.Spec.Settings,
+			Taints:   src.Spec.Taints,
+		},
+		Status: corev1beta1.SeedStatus{
+			Allocatable:       src.Status.Allocatable,
+			Capacity:          src.Status.Capacity,
+			Conditions:        src.Status.Conditions,
+			KubernetesVersion: src.Status.KubernetesVersion,
+			LastOperation:     src.Status.LastOperation,
+		},
+	}
+	return dst, nil
+}
+
+func transformProject(obj any) (any, error) {
+	src, ok := obj.(*corev1beta1.Project)
+	if !ok {
+		return obj, nil
+	}
+
+	dst := &corev1beta1.Project{
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+		Spec: corev1beta1.ProjectSpec{
+			Namespace: src.Spec.Namespace,
+			Owner:     src.Spec.Owner,
+		},
+		Status: corev1beta1.ProjectStatus{
+			Phase: src.Status.Phase,
+		},
+	}
+	dst.Annotations = retainStringMapKeys(src.Annotations,
+		projectAnnotationCostObject, projectAnnotationCostObjectType)
+
+	if src.Spec.Members != nil {
+		dst.Spec.Members = make([]corev1beta1.ProjectMember, len(src.Spec.Members))
+		for i := range src.Spec.Members {
+			dst.Spec.Members[i] = corev1beta1.ProjectMember{
+				Subject: rbacv1.Subject{Kind: src.Spec.Members[i].Kind},
+			}
+		}
+	}
+
+	return dst, nil
 }
 
 func transformSecretBinding(obj any) (any, error) {
-	sb, ok := obj.(*corev1beta1.SecretBinding) //nolint:staticcheck // SA1019
+	src, ok := obj.(*corev1beta1.SecretBinding) //nolint:staticcheck // SA1019
 	if !ok {
 		return obj, nil
 	}
 
-	sb.ManagedFields = nil
-	sb.Labels = nil
-	sb.Annotations = nil
-	sb.Finalizers = nil
-	sb.OwnerReferences = nil
-	sb.Provider = nil
-	sb.Quotas = nil
-
-	return sb, nil
+	return &corev1beta1.SecretBinding{ //nolint:staticcheck // SA1019
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+		SecretRef:  src.SecretRef,
+	}, nil
 }
 
 func transformCredentialsBinding(obj any) (any, error) {
-	cb, ok := obj.(*securityv1alpha1.CredentialsBinding)
+	src, ok := obj.(*securityv1alpha1.CredentialsBinding)
 	if !ok {
 		return obj, nil
 	}
 
-	cb.ManagedFields = nil
-	cb.Labels = nil
-	cb.Annotations = nil
-	cb.Finalizers = nil
-	cb.OwnerReferences = nil
-	cb.Provider = securityv1alpha1.CredentialsBindingProvider{}
-	cb.Quotas = nil
-
-	return cb, nil
+	return &securityv1alpha1.CredentialsBinding{
+		TypeMeta:       src.TypeMeta,
+		ObjectMeta:     retainObjectMeta(src.ObjectMeta),
+		CredentialsRef: src.CredentialsRef,
+	}, nil
 }
 
 func transformManagedSeed(obj any) (any, error) {
-	ms, ok := obj.(*seedmanagementv1alpha1.ManagedSeed)
+	src, ok := obj.(*seedmanagementv1alpha1.ManagedSeed)
 	if !ok {
 		return obj, nil
 	}
 
-	ms.ManagedFields = nil
-	ms.Labels = nil
-	ms.Annotations = nil
-	ms.Finalizers = nil
-	ms.OwnerReferences = nil
-	ms.Spec.Gardenlet = seedmanagementv1alpha1.GardenletConfig{}
-	ms.Status = seedmanagementv1alpha1.ManagedSeedStatus{}
-
-	return ms, nil
+	return &seedmanagementv1alpha1.ManagedSeed{
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+		Spec: seedmanagementv1alpha1.ManagedSeedSpec{
+			Shoot: src.Spec.Shoot,
+		},
+	}, nil
 }
 
 func transformGardenlet(obj any) (any, error) {
-	gl, ok := obj.(*seedmanagementv1alpha1.Gardenlet)
+	src, ok := obj.(*seedmanagementv1alpha1.Gardenlet)
 	if !ok {
 		return obj, nil
 	}
 
-	gl.ManagedFields = nil
-	gl.Labels = nil
-	gl.Annotations = nil
-	gl.Finalizers = nil
-	gl.OwnerReferences = nil
-	gl.Spec = seedmanagementv1alpha1.GardenletSpec{}
-
-	return gl, nil
+	return &seedmanagementv1alpha1.Gardenlet{
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+		Status: seedmanagementv1alpha1.GardenletStatus{
+			Conditions:         src.Status.Conditions,
+			ObservedGeneration: src.Status.ObservedGeneration,
+		},
+	}, nil
 }
 
 func transformCoreClusterScoped(obj any) (any, error) {

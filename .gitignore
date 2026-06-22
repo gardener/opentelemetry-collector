@@ -9,3 +9,5 @@ gosec-report.sarif
 .idea
 
 receiver/gardenerreceiver/bench-memory.txt
+receiver/gardenerreceiver/mem.prof
+receiver/gardenerreceiver/gardenerreceiver.test

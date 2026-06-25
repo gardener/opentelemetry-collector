@@ -120,6 +120,7 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 			r.gardenerClient,
 			r.config.SyncPeriod,
 			gardenerinformers.WithNamespace(r.config.Namespace),
+			gardenerinformers.WithTransform(transformShoot),
 		)
 
 		// Set up Shoot informer
@@ -141,6 +142,7 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 			r.gardenerClient,
 			r.config.SyncPeriod,
 			gardenerinformers.WithNamespace(r.config.Namespace),
+			gardenerinformers.WithTransform(transformSecretBinding),
 		)
 		r.secretBindingInformer = bindingFactory.Core().V1beta1().SecretBindings().Informer()
 		bindingFactory.Start(ctx.Done())
@@ -149,6 +151,7 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 			r.securityClient,
 			r.config.SyncPeriod,
 			securityinformers.WithNamespace(r.config.Namespace),
+			securityinformers.WithTransform(transformCredentialsBinding),
 		)
 		r.credentialsBindingInformer = securityFactory.Security().V1alpha1().CredentialsBindings().Informer()
 		securityFactory.Start(ctx.Done())
@@ -163,7 +166,11 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 	if r.config.HasSeedResource() || r.config.HasProjectResource() {
 		// Seeds and projects are both cluster-scoped resources in the same API group;
 		// share a single factory to avoid duplicate list/watch connections.
-		clusterScopedFactory := gardenerinformers.NewSharedInformerFactory(r.gardenerClient, r.config.SyncPeriod)
+		clusterScopedFactory := gardenerinformers.NewSharedInformerFactoryWithOptions(
+			r.gardenerClient,
+			r.config.SyncPeriod,
+			gardenerinformers.WithTransform(transformCoreClusterScoped),
+		)
 
 		if r.config.HasSeedResource() {
 			r.seedInformer = clusterScopedFactory.Core().V1beta1().Seeds().Informer()
@@ -193,7 +200,11 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 	}
 
 	if r.config.HasManagedSeedResource() || r.config.HasGardenletResource() {
-		seedMgmtFactory := seedmanagementinformers.NewSharedInformerFactory(r.seedMgmtClient, r.config.SyncPeriod)
+		seedMgmtFactory := seedmanagementinformers.NewSharedInformerFactoryWithOptions(
+			r.seedMgmtClient,
+			r.config.SyncPeriod,
+			seedmanagementinformers.WithTransform(transformSeedManagement),
+		)
 
 		if r.config.HasManagedSeedResource() {
 			r.managedSeedInformer = seedMgmtFactory.Seedmanagement().V1alpha1().ManagedSeeds().Informer()

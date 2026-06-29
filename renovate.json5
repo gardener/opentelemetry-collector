@@ -13,15 +13,7 @@
   "ignoreDeps": ["github.com/gardener/opentelemetry-collector/receiver/gardenerreceiver"],
 
   // Run `go mod tidy` and update import paths automatically after gomod bumps.
-  // Works with the hosted Renovate GitHub App (no self-hosting required).
   "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
-
-  // Track Dockerfile base images explicitly. Digest pinning lets Renovate update
-  // floating tags such as gcr.io/distroless/static:nonroot as digest updates.
-  "dockerfile": {
-    "enabled": true,
-    "pinDigests": true
-  },
 
   // Custom manager to parse OpenTelemetry gomod references in manifest.yml.
   "customManagers": [

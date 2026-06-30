@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+FROM golang:1.26.2 AS build-stage
+
+ARG OCB_VERSION=v0.155.0
+RUN go install go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} && mv /go/bin/builder /usr/local/bin/ocb
+
+WORKDIR /src
+COPY . /src
+
+RUN mkdir -p /build/_out \
+ && ocb --config=/src/extension/sdnotify/testdata/manifest.yaml \
+ && test -x /build/_out/otelcol
+
+FROM debian:12 AS run-stage
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        systemd systemd-sysv procps ca-certificates \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* \
+ && find /etc/systemd/system /lib/systemd/system \
+        -path '*.wants/*' -not -name '*journald*' \
+        -not -name '*systemd-tmpfiles*' -not -name '*systemd-user-sessions*' \
+        -exec rm -f {} +
+
+COPY --from=build-stage /build/_out/otelcol /bin/otelcol
+COPY extension/sdnotify/testdata/otelcol.service     /etc/systemd/system/otelcol.service
+COPY extension/sdnotify/testdata/otelcol-config.yaml /etc/otelcol/config.yaml
+
+# Enable the unit at image-build time. Symlinking sidesteps the need for a
+# running dbus during build.
+RUN ln -s /etc/systemd/system/otelcol.service \
+          /etc/systemd/system/multi-user.target.wants/otelcol.service
+
+# Tell systemd it's running in a container -- avoids it trying to do things
+# only valid on a real boot.
+ENV container=docker
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/lib/systemd/systemd"]

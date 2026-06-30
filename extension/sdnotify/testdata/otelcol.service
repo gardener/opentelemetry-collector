@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenTelemetry Collector (sdnotify integration test)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Type=notify is what makes systemd wait for READY=1 over $NOTIFY_SOCKET.
+# Without this, sdnotify's Ready() would no-op silently and the test would
+# pass for the wrong reason.
+Type=notify
+NotifyAccess=main
+ExecStart=/bin/otelcol --config=/etc/otelcol/config.yaml
+TimeoutStartSec=60
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

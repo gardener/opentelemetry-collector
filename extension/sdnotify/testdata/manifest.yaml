@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# OpenTelemetry Collector Builder (ocb) manifest used ONLY by the systemd
+# integration test in extension_test.go. It produces a minimal otelcol that
+# wires in the local sdnotify extension so the test can exercise the real
+# sd_notify path under systemd.
+#
+# Versions are pinned to match the sdnotify module's go.mod (v0.155.0 /
+# v1.61.0). The repo's top-level manifest.yml lags behind at v0.146.0, but
+# trying to use that line here fails because ocb resolves transitive
+# pdata/xpdata packages to a newer minor that references internals not
+# present in v0.146.0 (UseProtoPooling).
+# The replace directive points at the path where the Dockerfile copies the
+# repo source tree (/src), so ocb compiles against the in-tree extension.
+
+dist:
+  name: otelcol
+  description: otelcol with sdnotify (integration-test build)
+  output_path: /build/_out
+  version: 0.0.0-test
+
+extensions:
+  - gomod: github.com/gardener/opentelemetry-collector/extension/sdnotify v0.0.0
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.155.0
+
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.155.0
+
+processors: []
+connectors: []
+
+replaces:
+  - github.com/gardener/opentelemetry-collector/extension/sdnotify => /src/extension/sdnotify

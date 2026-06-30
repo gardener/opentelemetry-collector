@@ -1,0 +1,70 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits"
+  ],
+
+  // Only process these paths (ignore _build/ which is generated)
+  "ignorePaths": ["_build/**"],
+
+  // The gardenerreceiver entry in manifest.yml is replaced with the local module
+  // and must stay at v0.0.0.
+  "ignoreDeps": ["github.com/gardener/opentelemetry-collector/receiver/gardenerreceiver"],
+
+  // Run `go mod tidy` and update import paths automatically after gomod bumps.
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+
+  // Custom manager to parse OpenTelemetry gomod references in manifest.yml.
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^manifest\\.ya?ml$/"],
+      "matchStrings": [
+        "gomod:\\s+(?<depName>(?:go\\.opentelemetry\\.io\\/collector|github\\.com\\/open-telemetry\\/opentelemetry-collector-contrib)\\/\\S+)\\s+(?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "go",
+      "versioningTemplate": "go"
+    }
+  ],
+
+  "packageRules": [
+    // Group OpenTelemetry Collector core + contrib packages across all files.
+    // Core and contrib release on the same cadence with matching versions and
+    // must be bumped together — otherwise contrib won't compile against core.
+    {
+      "groupName": "OpenTelemetry Collector",
+      "matchPackageNames": [
+        "/^go\\.opentelemetry\\.io\\/collector/",
+        "/^github\\.com\\/open-telemetry\\/opentelemetry-collector-contrib/"
+      ],
+      "matchManagers": ["gomod", "custom.regex"]
+    },
+    // Group Kubernetes client libraries
+    {
+      "groupName": "Kubernetes dependencies",
+      "matchPackageNames": ["/^k8s\\.io\\//", "/^sigs\\.k8s\\.io\\//"]
+    },
+    // Group golang.org/x packages
+    {
+      "groupName": "golang.org/x",
+      "matchPackageNames": ["/^golang\\.org\\/x\\//"]
+    },
+    // Group Google packages
+    {
+      "groupName": "Google dependencies",
+      "matchPackageNames": ["/^google\\.golang\\.org\\//", "/^cloud\\.google\\.com\\//"]
+    },
+    // Docker base images
+    {
+      "groupName": "Docker base images",
+      "matchManagers": ["dockerfile"],
+      "matchDatasources": ["docker"]
+    },
+    // GitHub Actions
+    {
+      "groupName": "GitHub Actions",
+      "matchManagers": ["github-actions"]
+    }
+  ]
+}

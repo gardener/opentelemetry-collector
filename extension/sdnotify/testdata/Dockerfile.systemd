@@ -1,10 +1,8 @@
-# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
-#
-# SPDX-License-Identifier: Apache-2.0
 FROM golang:1.26.2 AS build-stage
 
 ARG OCB_VERSION=v0.155.0
-RUN go install go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} && mv /go/bin/builder /usr/local/bin/ocb
+RUN go install go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} && \ 
+    mv /go/bin/builder /usr/local/bin/ocb
 
 WORKDIR /src
 COPY . /src
@@ -17,26 +15,22 @@ FROM debian:12 AS run-stage
 
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        systemd systemd-sysv procps ca-certificates \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/* \
- && find /etc/systemd/system /lib/systemd/system \
-        -path '*.wants/*' -not -name '*journald*' \
-        -not -name '*systemd-tmpfiles*' -not -name '*systemd-user-sessions*' \
-        -exec rm -f {} +
+        systemd systemd-sysv procps ca-certificates
 
 COPY --from=build-stage /build/_out/otelcol /bin/otelcol
-COPY extension/sdnotify/testdata/otelcol.service     /etc/systemd/system/otelcol.service
+COPY extension/sdnotify/testdata/otelcol.service /etc/systemd/system/otelcol.service
 COPY extension/sdnotify/testdata/otelcol-config.yaml /etc/otelcol/config.yaml
+RUN ln -s /etc/systemd/system/otelcol.service /etc/systemd/system/multi-user.target.wants/otelcol.service
 
-# Enable the unit at image-build time. Symlinking sidesteps the need for a
-# running dbus during build.
-RUN ln -s /etc/systemd/system/otelcol.service \
-          /etc/systemd/system/multi-user.target.wants/otelcol.service
-
-# Tell systemd it's running in a container -- avoids it trying to do things
-# only valid on a real boot.
+# To allow systemd (and other programs) to identify that it is executed within
+# a container, please set the $container environment variable for PID 1 in the 
+# container to a short lowercase string identifying your implementation. 
+# https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#environment-variables
 ENV container=docker
+
+# If the container manager wants to cleanly shut down the container, it might be
+# a good idea to send SIGRTMIN+3 to its init process. systemd will then do a clean shutdown.
+# https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#advanced-integration
 STOPSIGNAL SIGRTMIN+3
 
 CMD ["/lib/systemd/systemd"]

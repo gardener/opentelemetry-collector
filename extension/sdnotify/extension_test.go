@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -27,10 +28,6 @@ import (
 // context is the repo root (two levels up from this file) so the Dockerfile
 // can COPY the in-tree extension source for ocb to consume.
 func TestSDNotify_SystemdIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping systemd integration test in -short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	t.Cleanup(cancel)
 
@@ -41,23 +38,27 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 			KeepImage:     false,
 			PrintBuildLog: true,
 		},
-		// Systemd as PID 1 needs either Privileged or a specific cap/cgroup
-		// recipe. Privileged + cgroupns=host + tmpfs for /run, /run/lock,
-		// /tmp is the most portable combination across Linux, Docker Desktop
-		// on macOS, and common CI runners.
 		HostConfigModifier: func(hc *container.HostConfig) {
-			hc.Privileged = true
+			// Both kernel capabilities are required to run systemd in a container.
+			// https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#what-you-shouldnt-do
+			hc.CapAdd = []string{"SYS_ADMIN", "MKNOD"}
+			// Should run without the default seccomp profile, because it denies mounting.
+			// https://docs.docker.com/engine/security/seccomp
+			hc.SecurityOpt = []string{"seccomp=unconfined"}
+			// Either pre-mount all cgroup hierarchies in full into the container, or leave that to systemd which will do so if they are missing.
+			// https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#execution-environment
 			hc.CgroupnsMode = container.CgroupnsModeHost
-			hc.Tmpfs = map[string]string{
-				"/run":      "rw",
-				"/run/lock": "rw",
-				"/tmp":      "rw",
+			hc.Mounts = []mount.Mount{
+				{
+					Type:   mount.TypeBind,
+					Source: "/sys/fs/cgroup",
+					Target: "/sys/fs/cgroup",
+				},
 			}
 		},
-		// Poll `systemctl is-active otelcol.service` until it exits 0.
-		// This is the load-bearing assertion: a Type=notify unit only
-		// transitions to active after systemd receives READY=1 from the
-		// process, which only happens via daemon.SdNotify in extension.Ready().
+		// Wait for systemd to finish booting AND for the otelcol.service to
+		// reach `active`. The latter only happens after sdnotify's Ready()
+		// has sent READY=1 -- which is the property we are testing.
 		WaitingFor: wait.ForExec([]string{
 			"systemctl", "is-active", "otelcol.service",
 		}).WithStartupTimeout(3 * time.Minute).
@@ -108,14 +109,16 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 }
 
 // execAndCollect runs argv in the container and returns combined output.
-// Errors fail the test rather than being returned -- every caller treats them
-// the same way.
+// Errors fail the test rather than being returned.
 func execAndCollect(t *testing.T, ctx context.Context, ctr testcontainers.Container, argv ...string) string {
 	t.Helper()
+
 	_, r, err := ctr.Exec(ctx, argv)
 	require.NoError(t, err, "exec failed: %v", argv)
+
 	out, err := io.ReadAll(r)
 	require.NoError(t, err, "reading exec output failed: %v", argv)
 	t.Logf("$ %s\n%s", strings.Join(argv, " "), out)
+
 	return string(out)
 }

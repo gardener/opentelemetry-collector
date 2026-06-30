@@ -1,11 +1,3 @@
-# SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
-#
-# SPDX-License-Identifier: Apache-2.0
-
-# Minimal collector config used by the systemd integration test.
-# The pipeline exists only so the collector reaches the Ready state and the
-# sdnotify extension's Ready() runs against the real $NOTIFY_SOCKET.
-
 extensions:
   sdnotifyextension:
     # If NOTIFY_SOCKET is not set, fail Start() before Ready() runs.

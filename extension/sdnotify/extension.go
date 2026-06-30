@@ -1,4 +1,4 @@
-package sdnotifyextension
+package sdnotify
 
 import (
 	"context"

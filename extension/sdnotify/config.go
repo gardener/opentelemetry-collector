@@ -1,4 +1,4 @@
-package sdnotifyextension
+package sdnotify
 
 import (
 	"go.opentelemetry.io/collector/confmap/xconfmap"

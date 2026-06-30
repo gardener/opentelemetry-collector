@@ -1,4 +1,4 @@
-module github.com/gardener/opentelemetry-collector/extension/sdnotifyextension
+module github.com/gardener/opentelemetry-collector/extension/sdnotify
 
 go 1.26.2
 

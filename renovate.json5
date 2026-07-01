@@ -5,6 +5,10 @@
     ":semanticCommits"
   ],
 
+  "labels": [
+    'kind/enhancement',
+  ],
+
   // Only process these paths (ignore _build/ which is generated)
   "ignorePaths": ["_build/**"],
 

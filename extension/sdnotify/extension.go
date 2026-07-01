@@ -82,10 +82,11 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 
 				sent, err := daemon.SdNotify(false, msg)
 				if err != nil {
+					// Best-effort: log but still proceed to the fatal-event report so
+					// a broken NOTIFY_SOCKET doesn't silently disable the SIGHUP-driven
+					// restart path.
 					s.logger.Warn("sdnotify RELOADING=1 failed", zap.Error(err))
-					return
-				}
-				if sent {
+				} else if sent {
 					s.logger.Info("sdnotify: SIGHUP received, sent RELOADING=1 to systemd",
 						zap.Uint64("monotonic_usec", monotonicUS))
 				}
@@ -97,6 +98,12 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 				// hook, so a supervisor-driven restart is the closest practical equivalent.
 				s.logger.Info("sdnotify: SIGHUP received; reporting fatal error to trigger supervisor restart")
 				componentstatus.ReportStatus(s.host, componentstatus.NewFatalErrorEvent(errSIGHUP))
+
+				// One SIGHUP triggers exactly one restart attempt. Further signals
+				// during the shutdown window would just re-report the same fatal
+				// event, so let the goroutine exit and rely on Shutdown() to clean
+				// up signal.Notify registration.
+				return
 			}
 		}
 	}()

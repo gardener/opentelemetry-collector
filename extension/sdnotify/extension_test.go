@@ -28,13 +28,13 @@ import (
 // context is the repo root (two levels up from this file) so the Dockerfile
 // can COPY the in-tree extension source for ocb to consume.
 func TestSDNotify_SystemdIntegration(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	t.Cleanup(cancel)
 
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
 			Context:       "../..",
-			Dockerfile:    "extension/sdnotify/testdata/Dockerfile.systemd",
+			Dockerfile:    "extension/sdnotify/testdata/Dockerfile",
 			KeepImage:     false,
 			PrintBuildLog: true,
 		},

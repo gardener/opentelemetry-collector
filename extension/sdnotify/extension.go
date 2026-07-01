@@ -58,9 +58,8 @@ func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 		cfg:    cfg,
 		logger: logger,
 		// configNotified: false,
-
-		s.sigCh:      make(chan os.Signal, 1),
-		s.shutdownCh: make(chan struct{}),
+		sigCh:      make(chan os.Signal, 1),
+		shutdownCh: make(chan struct{}),
 	}
 }
 
@@ -75,12 +74,6 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 		return fmt.Errorf("sdnotify: NOTIFY_SOCKET not set; not running under systemd")
 	}
 
-	// startSignalHandler wires SIGHUP to the RELOADING=1 emission required by
-	// Type=notify-reload. Registering via signal.Notify also suppresses Go's
-	// default disposition for SIGHUP (which is termination), so the collector
-	// stays up.
-	s.sigCh = make(chan os.Signal, 1)
-	s.shutdownCh = make(chan struct{})
 	// For services configured with Type=notify-reload, systemd signals the main
 	// process with SIGHUP when a reload is requested. The process is responsible
 	// for reloading its configuration and informing systemd when the reload has

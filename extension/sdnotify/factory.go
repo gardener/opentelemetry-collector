@@ -8,7 +8,7 @@ import (
 )
 
 // componentType is the name of this extension in configuration.
-const componentType = "sdnotifyextension"
+const componentType = "sdnotify"
 
 // NewFactory returns the factory for the sdnotify extension.
 func NewFactory() extension.Factory {

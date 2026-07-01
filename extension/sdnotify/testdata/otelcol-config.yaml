@@ -1,10 +1,5 @@
 extensions:
   sdnotifyextension:
-    # If NOTIFY_SOCKET is not set, fail Start() before Ready() runs.
-    # This turns the systemd wiring into a load-bearing precondition: any
-    # misconfiguration on the systemd side fails the unit instead of silently
-    # no-op'ing the notify.
-    fail_if_not_supervised: true
 
 receivers:
   otlp:

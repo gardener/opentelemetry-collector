@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -26,8 +26,8 @@ type Extension interface {
 type sdnotify struct {
 	cfg    *Config
 	logger *zap.Logger
-
-	host component.Host // captured in Start, so Ready can resolve siblings
+	host   component.Host
+	isNoop bool
 
 	// configNotified flips to true after the first NotifyConfigSnapshot call,
 	// which always fires at startup with the initial config. That first call
@@ -42,10 +42,9 @@ type sdnotify struct {
 	//             next NotifyConfigSnapshot to send the paired READY=1.
 	//   mu:       guards pending across the signal goroutine and the
 	//             NotifyConfigSnapshot callback.
-	sigCh   chan os.Signal
-	stopCh  chan struct{}
-	pending bool
-	mu      sync.Mutex
+	sigCh      chan os.Signal
+	shutdownCh chan struct{}
+	pending    atomic.Bool
 }
 
 var (
@@ -55,25 +54,74 @@ var (
 )
 
 func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
-	return &sdnotify{cfg: cfg, logger: logger}
+	return &sdnotify{
+		cfg:    cfg,
+		logger: logger,
+		// configNotified: false,
+
+		s.sigCh:      make(chan os.Signal, 1),
+		s.shutdownCh: make(chan struct{}),
+	}
 }
 
 func (s *sdnotify) Start(_ context.Context, host component.Host) error {
+	monotonicEpoch := time.Now()
+
 	s.host = host
 
-	// If the variable is not set, the protocol is a no-op.
-	if s.cfg.FailIfNotSupervised && os.Getenv("NOTIFY_SOCKET") == "" {
+	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
+	if os.Getenv("NOTIFY_SOCKET") == "" {
+		s.isNoop = true
 		return fmt.Errorf("sdnotify: NOTIFY_SOCKET not set; not running under systemd")
 	}
 
-	s.startSignalHandler()
+	// startSignalHandler wires SIGHUP to the RELOADING=1 emission required by
+	// Type=notify-reload. Registering via signal.Notify also suppresses Go's
+	// default disposition for SIGHUP (which is termination), so the collector
+	// stays up.
+	s.sigCh = make(chan os.Signal, 1)
+	s.shutdownCh = make(chan struct{})
+	// For services configured with Type=notify-reload, systemd signals the main
+	// process with SIGHUP when a reload is requested. The process is responsible
+	// for reloading its configuration and informing systemd when the reload has
+	// completed, allowing systemd to track the reload status correctly.
+	signal.Notify(s.sigCh, syscall.SIGHUP)
+
+	go func() {
+		for {
+			select {
+			case <-s.shutdownCh:
+				return
+			case <-s.sigCh:
+				// onReloadSignal sends RELOADING=1 + MONOTONIC_USEC to systemd. Per sd_notify(3),
+				// MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds as a decimal string,
+				// and it must be sent in the same datagram as RELOADING=1.
+				// If another SIGHUP is already pending, we still re-emit RELOADING=1
+				// (it's cheap, and systemd's timeout resets on it). The flag stays true.
+				s.pending.Store(true)
+
+				monotonicUS := uint64(time.Since(monotonicEpoch) / time.Microsecond)
+				msg := fmt.Sprintf("%s\nMONOTONIC_USEC=%d", daemon.SdNotifyReloading, monotonicUS)
+
+				sent, err := daemon.SdNotify(false, msg)
+				if err != nil {
+					s.logger.Warn("sdnotify RELOADING=1 failed", zap.Error(err))
+					return
+				}
+				if sent {
+					s.logger.Info("sdnotify: SIGHUP received, sent RELOADING=1 to systemd",
+						zap.Uint64("monotonic_usec", monotonicUS))
+				}
+			}
+		}
+	}()
 
 	return nil
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	if s.stopCh != nil {
-		close(s.stopCh)
+	if s.shutdownCh != nil {
+		close(s.shutdownCh)
 		signal.Stop(s.sigCh)
 	}
 	return nil
@@ -134,12 +182,9 @@ func (s *sdnotify) NotifyConfigSnapshot(_ context.Context, _ extensioncapabiliti
 		return nil
 	}
 
-	s.mu.Lock()
-	pending := s.pending
-	s.pending = false
-	s.mu.Unlock()
+	s.pending.Store(false)
 
-	if !pending {
+	if !s.pending.Load() {
 		// Not a systemd-initiated reload -- nothing to acknowledge.
 		return nil
 	}
@@ -154,62 +199,4 @@ func (s *sdnotify) NotifyConfigSnapshot(_ context.Context, _ extensioncapabiliti
 	}
 
 	return nil
-}
-
-// startSignalHandler wires SIGHUP to the RELOADING=1 emission required by
-// Type=notify-reload. Registering via signal.Notify also suppresses Go's
-// default disposition for SIGHUP (which is termination), so the collector
-// stays up.
-func (s *sdnotify) startSignalHandler() {
-	s.sigCh = make(chan os.Signal, 1)
-	s.stopCh = make(chan struct{})
-	signal.Notify(s.sigCh, syscall.SIGHUP)
-
-	go func() {
-		for {
-			select {
-			case <-s.stopCh:
-				return
-			case <-s.sigCh:
-				s.onReloadSignal()
-			}
-		}
-	}()
-
-	s.logger.Info("sdnotify: installed SIGHUP handler for Type=notify-reload")
-}
-
-// onReloadSignal sends RELOADING=1 + MONOTONIC_USEC to systemd. Per sd_notify(3),
-// MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds as a decimal string,
-// and it must be sent in the same datagram as RELOADING=1.
-func (s *sdnotify) onReloadSignal() {
-	s.mu.Lock()
-	// If another SIGHUP is already pending, we still re-emit RELOADING=1
-	// (it's cheap, and systemd's timeout resets on it). The flag stays true.
-	s.pending = true
-	s.mu.Unlock()
-
-	monotonicUS := uint64(monotonicNow() / time.Microsecond)
-	msg := fmt.Sprintf("%s\nMONOTONIC_USEC=%d", daemon.SdNotifyReloading, monotonicUS)
-
-	sent, err := daemon.SdNotify(false, msg)
-	if err != nil {
-		s.logger.Warn("sdnotify RELOADING=1 failed", zap.Error(err))
-		return
-	}
-	if sent {
-		s.logger.Info("sdnotify: SIGHUP received, sent RELOADING=1 to systemd",
-			zap.Uint64("monotonic_usec", monotonicUS))
-	}
-}
-
-// monotonicNow returns CLOCK_MONOTONIC as a time.Duration since some
-// unspecified epoch. Go's runtime keeps a monotonic reading inside time.Time
-// values, but exposes no direct API for "give me the raw monotonic clock";
-// time.Since(zero) where zero is captured at process init is the standard
-// idiom for getting a monotonic-only measurement.
-var monotonicEpoch = time.Now()
-
-func monotonicNow() time.Duration {
-	return time.Since(monotonicEpoch)
 }

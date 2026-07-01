@@ -77,18 +77,22 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 			case <-s.sigCh:
 				// Per sd_notify(3): MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds,
 				// formatted as a decimal string, in the same datagram as RELOADING=1.
-				monotonicUS := uint64(time.Since(monotonicEpoch) / time.Microsecond)
-				msg := fmt.Sprintf("%s\nMONOTONIC_USEC=%d", daemon.SdNotifyReloading, monotonicUS)
+				monotonicUSec := uint64(time.Since(monotonicEpoch) / time.Microsecond)
+				msg := fmt.Sprintf(
+					"%s\nMONOTONIC_USEC=%d",
+					daemon.SdNotifyReloading,
+					monotonicUSec,
+				)
 
 				sent, err := daemon.SdNotify(false, msg)
 				if err != nil {
-					// Best-effort: log but still proceed to the fatal-event report so
-					// a broken NOTIFY_SOCKET doesn't silently disable the SIGHUP-driven
-					// restart path.
+					// Don't block shutdown on a notify failure, just log it.
 					s.logger.Warn("sdnotify RELOADING=1 failed", zap.Error(err))
 				} else if sent {
-					s.logger.Info("sdnotify: SIGHUP received, sent RELOADING=1 to systemd",
-						zap.Uint64("monotonic_usec", monotonicUS))
+					s.logger.Info(
+						"sdnotify: SIGHUP received, sent RELOADING=1 to systemd",
+						zap.Uint64("monotonic_usec", monotonicUSec),
+					)
 				}
 
 				// errSIGHUP is reported as a fatal component-status event when the extension

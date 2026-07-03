@@ -73,7 +73,7 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 			case <-s.sigCh:
 				// Per sd_notify(3): MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds,
 				// formatted as a decimal string, in the same datagram as RELOADING=1.
-				monotonicUSec := uint64(time.Since(monotonicEpoch) / time.Microsecond)
+				monotonicUSec := uint64(max(time.Since(monotonicEpoch), 0) / time.Microsecond)
 				msg := fmt.Sprintf(
 					"%s\nMONOTONIC_USEC=%d",
 					daemon.SdNotifyReloading,

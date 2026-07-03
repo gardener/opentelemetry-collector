@@ -12,31 +12,28 @@
 
 The `sdnotify` extension integrates the collector with the
 [sd_notify(3)](https://www.man7.org/linux/man-pages/man3/sd_notify.3.html) protocol.
-When the collector runs under a `Type=notify` systemd unit it will:
+When the collector runs under a `Type=notify` (or `Type=notify-reload`) systemd
+unit it will:
 
 - send `READY=1` once all pipelines have started, so `systemctl start` returns
   only when the collector is actually accepting data;
 - send `STOPPING=1` when the pipelines shut down, so systemd knows the process
   is going away deliberately;
-- on `SIGHUP` (systemd's `ExecReload` signal), report a fatal error to the
-  collector so the process exits cleanly and the supervisor
-  (`Restart=on-failure` / `Restart=always`) starts a fresh one with the
-  updated configuration.
+- on `SIGHUP` send `RELOADING=1` (paired with `MONOTONIC_USEC` as required by 
+  `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress.
 
-When `$NOTIFY_SOCKET` is not set (dev environments, containers without a
-notify socket, tests) the extension logs a warning and stays a no-op — it
-will never fail collector startup.
+When `$NOTIFY_SOCKET` is not set the extension logs a warning and stays a no-op 
+- it  will never fail collector startup.
 
-## Why SIGHUP triggers a restart, not an in-place reload
+## How SIGHUP reload works
 
-The OpenTelemetry Collector does not currently expose a first-class
-in-process reload hook that an extension can drive. `SIGHUP → fatal error →
-supervisor restart` is the closest equivalent that keeps systemd's state
-machine honest: the reload boundary is a clean process boundary, and the
-supervisor's normal restart policy handles the rest. Use `Type=notify` (not
-`Type=notify-reload`) in your unit file — the extension does not implement
-the paired `RELOADING=1` / `READY=1` handshake, because the process would
-never live long enough to send the second half.
+The extension does not itself drive a reload or cycle the process on SIGHUP.
+The OpenTelemetry Collector has its own SIGHUP handler that performs an
+**in-process** reload: it calls `service.Shutdown` and then re-runs
+`setupConfigurationComponents` to rebuild the pipelines from the current
+config on disk. That reload invokes `PipelineWatcher.NotReady` on this
+extension (which sends `STOPPING=1`) and, once the fresh pipelines are up,
+`PipelineWatcher.Ready` (which sends `READY=1` again).
 
 ## Configuration
 
@@ -62,9 +59,9 @@ Description=OpenTelemetry Collector
 After=network-online.target
 
 [Service]
-Type=notify
+Type=notify-reload
 ExecStart=/usr/local/bin/otelcol --config=/etc/otelcol/config.yaml
-ExecReload=/bin/kill -HUP $MAINPID
+ReloadSignal=SIGHUP
 Restart=on-failure
 RestartSec=2s
 
@@ -74,22 +71,9 @@ WantedBy=multi-user.target
 
 With this unit:
 
-- `systemctl start otelcol` blocks until the collector's pipelines are up.
-- `systemctl reload otelcol` sends `SIGHUP`; the extension reports a fatal
-  error, the collector exits, and systemd restarts it — picking up any
-  config changes on disk.
+- `systemctl start otelcol` blocks until the collector's pipelines are up
+  (waits for `READY=1`).
+- `systemctl reload otelcol` sends `SIGHUP`; systemd tracks the reload via
+  `RELOADING=1` -> `READY=1` and the collector re-reads its config in place
+  (`MainPID` unchanged).
 - `systemctl stop otelcol` sees `STOPPING=1` as the pipelines drain.
-
-## Testing
-
-Unit tests use a Unix datagram socket to stand in for `$NOTIFY_SOCKET` and
-assert the exact payloads sent. An integration test in
-`extension_test.go` boots a real systemd PID-1 container and asserts the
-unit reaches `active/running`, exercising the full path end-to-end. The
-integration test requires Docker; run only the unit tests with:
-
-```bash
-go test -run '^Test(Start|Ready|NotReady|SIGHUP|Shutdown)' ./...
-```
-
-[sd_notify]: https://www.freedesktop.org/software/systemd/man/sd_notify.html

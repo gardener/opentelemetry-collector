@@ -25,10 +25,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// nopHost is a minimal component.Host for unit tests. The sdnotify extension
-// only stores the host and never calls into it (SIGHUP no longer reports a
-// fatal status event -- otelcol.Collector owns SIGHUP-triggered reload), so
-// GetExtensions returning nil is sufficient.
+// nopHost is a minimal component.Host for unit tests.
 type nopHost struct{}
 
 func (nopHost) GetExtensions() map[component.ID]component.Component { return nil }

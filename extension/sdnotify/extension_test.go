@@ -102,23 +102,21 @@ func TestNotReady_SendsSTOPPING(t *testing.T) {
 }
 
 func TestSIGHUP_SendsRELOADING(t *testing.T) {
-	msgs := startFakeNotifySocket(t) // NOTIFY_SOCKET must be set for the signal handler to run
+	msgs := startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
 	require.NoError(t, s.Start(context.Background(), nopHost{}))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 
-	// Deliver SIGHUP to ourselves; signal.Notify in Start() intercepts it.
+	// SendS a SIGHUP signal.
 	require.NoError(t, syscall.Kill(os.Getpid(), syscall.SIGHUP))
 
 	select {
 	case got := <-msgs:
-		// Per sd_notify(3): RELOADING=1 must be sent together with
-		// MONOTONIC_USEC in a single datagram.
 		require.Contains(t, got, "RELOADING=1")
 		require.Contains(t, got, "MONOTONIC_USEC=")
 	case <-time.After(2 * time.Second):
-		t.Fatal("no datagram received on fake NOTIFY_SOCKET after SIGHUP")
+		t.Fatal("no event received at NOTIFY_SOCKET after SIGHUP")
 	}
 }
 

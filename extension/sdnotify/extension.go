@@ -58,23 +58,10 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 		return nil
 	}
 
-	// SIGHUP handling: we only emit RELOADING=1 (with MONOTONIC_USEC per sd_notify(3))
-	// so that Type=notify-reload units see the correct "entering reload" transition.
-	// We do NOT translate SIGHUP into a process exit or a fatal-error report.
-	//
-	// The OpenTelemetry Collector installs its own SIGHUP handler in
-	// otelcol.Collector.Run that performs an in-process reload:
-	// service.Shutdown -> setupConfigurationComponents. That reload path invokes
-	// PipelineWatcher.NotReady on this extension (which sends STOPPING=1) and,
-	// after the fresh config is up, PipelineWatcher.Ready (which sends READY=1).
-	// The end-to-end datagram sequence systemd sees on SIGHUP is therefore
-	// RELOADING=1 -> STOPPING=1 -> READY=1, which satisfies Type=notify-reload's
-	// contract that READY=1 is re-asserted once reload completes.
-	//
-	// Consequence: SIGHUP does NOT cycle the process. MainPID stays the same and
-	// NRestarts stays 0. If you need a supervisor-driven restart instead of an
-	// in-process reload, use `systemctl restart` (or Restart=on-failure combined
-	// with a real fatal), not SIGHUP.
+	// For services configured with Type=notify-reload, systemd signals the main
+	// process with SIGHUP when a reload is requested. The process is responsible
+	// for reloading its configuration and informing systemd when the reload has
+	// completed, allowing systemd to track the reload status correctly.
 	monotonicEpoch := time.Now()
 	signal.Notify(s.sigCh, syscall.SIGHUP)
 
@@ -102,9 +89,10 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 						zap.Uint64("monotonic_usec", monotonicUSec),
 					)
 				}
-				// Deliberately no ReportStatus / no exit: otelcol.Collector.Run
-				// owns the SIGHUP-triggered reload; STOPPING=1/READY=1 are emitted
-				// by NotReady/Ready as the reload tears down and rebuilds pipelines.
+
+				// otelcol.Collector.Run owns the SIGHUP-triggered reload logic.
+				// This extension should not restart the process because the
+				// collector handles reloads itself.
 			}
 		}
 	}()

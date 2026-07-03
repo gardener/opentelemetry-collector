@@ -5,10 +5,10 @@
 package sdnotify
 
 import (
-	"go.opentelemetry.io/collector/confmap/xconfmap"
+	"go.opentelemetry.io/collector/confmap"
 )
 
-var _ xconfmap.Validator = (*Config)(nil)
+var _ confmap.Validator = (*Config)(nil)
 
 // Config controls how the sdnotify extension talks to systemd.
 type Config struct{}

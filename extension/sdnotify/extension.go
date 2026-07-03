@@ -52,8 +52,6 @@ func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 }
 
 func (s *sdnotify) Start(_ context.Context, host component.Host) error {
-	monotonicEpoch := time.Now()
-
 	s.host = host
 
 	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
@@ -67,6 +65,7 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 	// process with SIGHUP when a reload is requested. The process is responsible
 	// for reloading its configuration and informing systemd when the reload has
 	// completed, allowing systemd to track the reload status correctly.
+	monotonicEpoch := time.Now()
 	signal.Notify(s.sigCh, syscall.SIGHUP)
 
 	go func() {
@@ -95,18 +94,14 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 					)
 				}
 
+				// The OpenTelemetry Collector has no first-class in-process reload
+				// hook, so a supervisor-driven restart is the closest practical equivalent.
 				// errSIGHUP is reported as a fatal component-status event when the extension
 				// receives SIGHUP, prompting the collector to shut down so that a supervisor
 				// (systemd Restart=on-failure/always) can start a fresh process.
-				// The OpenTelemetry Collector has no first-class in-process reload
-				// hook, so a supervisor-driven restart is the closest practical equivalent.
 				s.logger.Info("sdnotify: SIGHUP received; reporting fatal error to trigger supervisor restart")
 				componentstatus.ReportStatus(s.host, componentstatus.NewFatalErrorEvent(errSIGHUP))
 
-				// One SIGHUP triggers exactly one restart attempt. Further signals
-				// during the shutdown window would just re-report the same fatal
-				// event, so let the goroutine exit and rely on Shutdown() to clean
-				// up signal.Notify registration.
 				return
 			}
 		}

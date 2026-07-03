@@ -20,7 +20,7 @@ func NewFactory() extension.Factory {
 		component.MustNewType(componentType),
 		createDefaultConfig,
 		createExtension,
-		component.StabilityLevelAlpha,
+		component.StabilityLevelDevelopment,
 	)
 }
 

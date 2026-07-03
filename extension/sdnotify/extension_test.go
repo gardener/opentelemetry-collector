@@ -50,7 +50,7 @@ func startFakeNotifySocket(t *testing.T) <-chan string {
 		for {
 			n, _, err := conn.ReadFrom(buf)
 			if err != nil {
-				return // socket closed on cleanup
+				return
 			}
 			msgs <- string(buf[:n])
 		}

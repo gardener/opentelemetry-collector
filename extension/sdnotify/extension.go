@@ -38,9 +38,7 @@ type Extension interface {
 	extensioncapabilities.PipelineWatcher
 }
 
-var (
-	_ Extension = (*sdnotify)(nil)
-)
+var _ Extension = (*sdnotify)(nil)
 
 func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 	return &sdnotify{

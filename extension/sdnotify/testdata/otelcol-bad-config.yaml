@@ -1,0 +1,27 @@
+# Intentionally broken config used by TestSDNotify_StartupFailure_LeavesUnitFailed.
+# References an exporter that isn't compiled into the test binary, so the
+# collector fails during Start() and never sends READY=1. This exercises the
+# path where systemd's Type=notify start-timeout expires with the unit failed
+# (as opposed to hanging waiting for a READY=1 that will never come).
+
+extensions:
+  sdnotifyextension:
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+
+exporters:
+  # Not compiled into the test otelcol binary (see testdata/manifest.yaml,
+  # which only wires debug). Collector startup fails cleanly.
+  otlp/nonexistent:
+    endpoint: 127.0.0.1:65535
+
+service:
+  extensions: [sdnotifyextension]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/nonexistent]

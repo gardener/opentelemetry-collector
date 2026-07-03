@@ -15,7 +15,6 @@ import (
 
 	"github.com/coreos/go-systemd/v22/daemon"
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensioncapabilities"
 	"go.uber.org/zap"
@@ -59,10 +58,23 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 		return nil
 	}
 
-	// For services configured with Type=notify-reload, systemd signals the main
-	// process with SIGHUP when a reload is requested. The process is responsible
-	// for reloading its configuration and informing systemd when the reload has
-	// completed, allowing systemd to track the reload status correctly.
+	// SIGHUP handling: we only emit RELOADING=1 (with MONOTONIC_USEC per sd_notify(3))
+	// so that Type=notify-reload units see the correct "entering reload" transition.
+	// We do NOT translate SIGHUP into a process exit or a fatal-error report.
+	//
+	// The OpenTelemetry Collector installs its own SIGHUP handler in
+	// otelcol.Collector.Run that performs an in-process reload:
+	// service.Shutdown -> setupConfigurationComponents. That reload path invokes
+	// PipelineWatcher.NotReady on this extension (which sends STOPPING=1) and,
+	// after the fresh config is up, PipelineWatcher.Ready (which sends READY=1).
+	// The end-to-end datagram sequence systemd sees on SIGHUP is therefore
+	// RELOADING=1 -> STOPPING=1 -> READY=1, which satisfies Type=notify-reload's
+	// contract that READY=1 is re-asserted once reload completes.
+	//
+	// Consequence: SIGHUP does NOT cycle the process. MainPID stays the same and
+	// NRestarts stays 0. If you need a supervisor-driven restart instead of an
+	// in-process reload, use `systemctl restart` (or Restart=on-failure combined
+	// with a real fatal), not SIGHUP.
 	monotonicEpoch := time.Now()
 	signal.Notify(s.sigCh, syscall.SIGHUP)
 
@@ -83,7 +95,6 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 
 				sent, err := daemon.SdNotify(false, msg)
 				if err != nil {
-					// Don't block shutdown on a notify failure, just log it.
 					s.logger.Warn("sdnotify RELOADING=1 failed", zap.Error(err))
 				} else if sent {
 					s.logger.Info(
@@ -91,16 +102,9 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 						zap.Uint64("monotonic_usec", monotonicUSec),
 					)
 				}
-
-				// The OpenTelemetry Collector has no first-class in-process reload
-				// hook, so a supervisor-driven restart is the closest practical equivalent.
-				// errSIGHUP is reported as a fatal component-status event when the extension
-				// receives SIGHUP, prompting the collector to shut down so that a supervisor
-				// (systemd Restart=on-failure/always) can start a fresh process.
-				s.logger.Info("sdnotify: SIGHUP received; reporting fatal error to trigger supervisor restart")
-				componentstatus.ReportStatus(s.host, componentstatus.NewFatalErrorEvent(errSIGHUP))
-
-				return
+				// Deliberately no ReportStatus / no exit: otelcol.Collector.Run
+				// owns the SIGHUP-triggered reload; STOPPING=1/READY=1 are emitted
+				// by NotReady/Ready as the reload tears down and rebuilds pipelines.
 			}
 		}
 	}()

@@ -1,5 +1,5 @@
 extensions:
-  sdnotifyextension:
+  sdnotify:
 
 receivers:
   otlp:
@@ -11,7 +11,7 @@ exporters:
   debug: {}
 
 service:
-  extensions: [sdnotifyextension]
+  extensions: [sdnotify]
   pipelines:
     traces:
       receivers: [otlp]

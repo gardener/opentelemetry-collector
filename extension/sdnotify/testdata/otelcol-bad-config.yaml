@@ -5,7 +5,7 @@
 # (as opposed to hanging waiting for a READY=1 that will never come).
 
 extensions:
-  sdnotifyextension:
+  sdnotify:
 
 receivers:
   otlp:
@@ -20,7 +20,7 @@ exporters:
     endpoint: 127.0.0.1:65535
 
 service:
-  extensions: [sdnotifyextension]
+  extensions: [sdnotify]
   pipelines:
     traces:
       receivers: [otlp]

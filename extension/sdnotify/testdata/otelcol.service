@@ -8,7 +8,7 @@ Type=notify
 NotifyAccess=main
 ExecStart=/bin/otelcol --config=/etc/otelcol/config.yaml
 TimeoutStartSec=60
-Restart=no
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

@@ -165,15 +165,28 @@ func TestShutdown_IsIdempotent(t *testing.T) {
 	require.NoError(t, s.Shutdown(context.Background()))
 }
 
+// execAndCollect runs argv in the container and returns combined output.
+// Errors fail the test rather than being returned.
+func execAndCollect(t *testing.T, ctx context.Context, ctr testcontainers.Container, argv ...string) string {
+	t.Helper()
+
+	_, r, err := ctr.Exec(ctx, argv)
+	require.NoError(t, err, "exec failed: %v", argv)
+
+	out, err := io.ReadAll(r)
+	require.NoError(t, err, "reading exec output failed: %v", argv)
+	t.Logf("$ %s\n%s", strings.Join(argv, " "), out)
+
+	return string(out)
+}
+
 // TestSDNotify_SystemdIntegration spins up a real systemd-PID-1 container,
 // runs otelcol (built fresh via ocb with this extension wired in) as a
 // Type=notify unit, and asserts via systemctl that the unit reached
-// active/running -- which is only possible if extension.Ready() successfully
+// active/running - which is only possible if extension.Ready() successfully
 // sent READY=1 over $NOTIFY_SOCKET.
 //
-// All files needed to build the image live under testdata/. The Docker build
-// context is the repo root (two levels up from this file) so the Dockerfile
-// can COPY the in-tree extension source for ocb to consume.
+// All files needed to build the image live under testdata/.
 func TestSDNotify_SystemdIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	t.Cleanup(cancel)
@@ -192,7 +205,7 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 			// Should run without the default seccomp profile, because it denies mounting.
 			// https://docs.docker.com/engine/security/seccomp
 			hc.SecurityOpt = []string{"seccomp=unconfined"}
-			// Either pre-mount all cgroup hierarchies in full into the container, or leave that to systemd which will do so if they are missing.
+			// Either pre-mount all cgroup hierarchies into the container, or leave that to systemd which will do so if they are missing.
 			// https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#execution-environment
 			hc.CgroupnsMode = container.CgroupnsModeHost
 			hc.Mounts = []mount.Mount{
@@ -203,9 +216,7 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 				},
 			}
 		},
-		// Wait for systemd to finish booting AND for the otelcol.service to
-		// reach `active`. The latter only happens after sdnotify's Ready()
-		// has sent READY=1 -- which is the property we are testing.
+		// Wait for systemd to finish booting AND for the otelcol.service to reach `active`.
 		WaitingFor: wait.ForExec([]string{
 			"systemctl", "is-active", "otelcol.service",
 		}).WithStartupTimeout(3 * time.Minute).
@@ -222,7 +233,7 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 		_ = ctr.Terminate(context.Background())
 	})
 
-	// Belt-and-suspenders: explicit state assertions for nicer failure output.
+	// Vaidate that otelcol.service is running & healthy.
 	show := execAndCollect(t, ctx, ctr,
 		"systemctl", "show", "otelcol.service",
 		"-p", "ActiveState", "-p", "SubState", "-p", "Result",
@@ -231,9 +242,7 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 	require.Contains(t, show, "SubState=running")
 	require.Contains(t, show, "Result=success")
 
-	// Confirm extension.Ready()'s log line landed in the journal. If the base
-	// image ever strips journalctl, drop this; the systemctl checks above are
-	// sufficient on their own.
+	// Confirm extension.Ready()'s log line landed in the journal.
 	journal := execAndCollect(t, ctx, ctr,
 		"journalctl", "-u", "otelcol.service", "--no-pager",
 	)
@@ -242,30 +251,12 @@ func TestSDNotify_SystemdIntegration(t *testing.T) {
 		"expected sdnotify READY=1 log line in journal, got:\n%s", journal,
 	)
 
-	// Exercise the NotReady() path: stop the unit and verify a clean exit.
-	// STOPPING=1 is best-effort in the extension (it only logs on failure),
-	// so we assert on systemd's view of the shutdown, not on a log line.
+	// Stop the unit and verify a clean exit.
 	_ = execAndCollect(t, ctx, ctr, "systemctl", "stop", "otelcol.service")
-
 	stopped := execAndCollect(t, ctx, ctr,
 		"systemctl", "show", "otelcol.service",
 		"-p", "ActiveState", "-p", "Result",
 	)
 	require.Contains(t, stopped, "ActiveState=inactive")
 	require.Contains(t, stopped, "Result=success")
-}
-
-// execAndCollect runs argv in the container and returns combined output.
-// Errors fail the test rather than being returned.
-func execAndCollect(t *testing.T, ctx context.Context, ctr testcontainers.Container, argv ...string) string {
-	t.Helper()
-
-	_, r, err := ctr.Exec(ctx, argv)
-	require.NoError(t, err, "exec failed: %v", argv)
-
-	out, err := io.ReadAll(r)
-	require.NoError(t, err, "reading exec output failed: %v", argv)
-	t.Logf("$ %s\n%s", strings.Join(argv, " "), out)
-
-	return string(out)
 }

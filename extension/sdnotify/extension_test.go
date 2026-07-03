@@ -30,9 +30,8 @@ type nopHost struct{}
 
 func (nopHost) GetExtensions() map[component.ID]component.Component { return nil }
 
-// startFakeNotifySocket opens a datagram socket in a temp dir, points
-// $NOTIFY_SOCKET at it, and returns a channel that receives every payload
-// systemd would have seen. Cleanup is registered via t.Cleanup.
+// startFakeNotifySocket opens a unix socket , points $NOTIFY_SOCKET at it, and
+// returns a channel that receives every payload systemd would have seen.
 func startFakeNotifySocket(t *testing.T) <-chan string {
 	t.Helper()
 

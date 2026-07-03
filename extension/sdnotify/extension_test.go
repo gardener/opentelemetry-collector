@@ -108,9 +108,7 @@ func TestSIGHUP_SendsRELOADING(t *testing.T) {
 	require.NoError(t, s.Start(context.Background(), nopHost{}))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 
-	// SendS a SIGHUP signal.
 	require.NoError(t, syscall.Kill(os.Getpid(), syscall.SIGHUP))
-
 	select {
 	case got := <-msgs:
 		require.Contains(t, got, "RELOADING=1")

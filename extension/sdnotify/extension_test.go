@@ -179,6 +179,7 @@ func startSystemdContainer(
 			PrintBuildLog: true,
 		},
 		HostConfigModifier: func(hc *container.HostConfig) {
+			hc.Privileged = true
 			// Both kernel capabilities are required to run systemd in a container.
 			// https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#what-you-shouldnt-do
 			hc.CapAdd = []string{"SYS_ADMIN", "MKNOD"}

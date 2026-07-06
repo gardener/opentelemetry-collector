@@ -140,7 +140,7 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 	assert.Len(t, s.Spec.Provider.Workers[0].Taints, 1)
 	assert.Equal(t, "1.28.0", s.Spec.Kubernetes.Version)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeAPIServer.AuditConfig)
-	assert.Empty(t, s.Spec.Kubernetes.KubeAPIServer.StructuredAuthentication.ConfigMapName)
+	assert.NotEmpty(t, s.Spec.Kubernetes.KubeAPIServer.StructuredAuthentication.ConfigMapName)
 	assert.Len(t, s.Spec.Kubernetes.KubeAPIServer.AdmissionPlugins, 1)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeControllerManager)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeScheduler)

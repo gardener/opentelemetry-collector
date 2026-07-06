@@ -73,7 +73,6 @@ func transformShoot(obj any) (any, error) {
 	dst.Labels = retainStringMapKeys(src.Labels, corev1beta1constants.ShootStatus)
 
 	dst.Spec = corev1beta1.ShootSpec{
-		Addons:                 src.Spec.Addons,
 		ControlPlane:           src.Spec.ControlPlane,
 		CredentialsBindingName: src.Spec.CredentialsBindingName,
 		DNS:                    src.Spec.DNS,
@@ -146,10 +145,10 @@ func retainShootKubernetes(src corev1beta1.Kubernetes) corev1beta1.Kubernetes {
 	if src.KubeAPIServer != nil {
 		s := src.KubeAPIServer
 		dst.KubeAPIServer = &corev1beta1.KubeAPIServerConfig{
-			KubernetesConfig: s.KubernetesConfig,
-			AdmissionPlugins: s.AdmissionPlugins,
-			AuditConfig:      s.AuditConfig,
-			OIDCConfig:       s.OIDCConfig, //nolint:staticcheck // SA1019
+			KubernetesConfig:         s.KubernetesConfig,
+			AdmissionPlugins:         s.AdmissionPlugins,
+			AuditConfig:              s.AuditConfig,
+			StructuredAuthentication: s.StructuredAuthentication,
 		}
 	}
 

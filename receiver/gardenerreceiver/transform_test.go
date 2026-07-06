@@ -63,7 +63,9 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 				Version: "1.28.0",
 				KubeAPIServer: &corev1beta1.KubeAPIServerConfig{
 					AuditConfig: &corev1beta1.AuditConfig{},
-					OIDCConfig:  &corev1beta1.OIDCConfig{}, //nolint:staticcheck // SA1019
+					StructuredAuthentication: &corev1beta1.StructuredAuthentication{
+						ConfigMapName: "config-map",
+					},
 					AdmissionPlugins: []corev1beta1.AdmissionPlugin{
 						{Name: "PodSecurity"},
 					},
@@ -92,10 +94,6 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 			Maintenance: &corev1beta1.Maintenance{
 				TimeWindow: &corev1beta1.MaintenanceTimeWindow{Begin: "010000+0000", End: "020000+0000"},
 				AutoUpdate: &corev1beta1.MaintenanceAutoUpdate{KubernetesVersion: true},
-			},
-			Addons: &corev1beta1.Addons{
-				NginxIngress:        &corev1beta1.NginxIngress{Addon: corev1beta1.Addon{Enabled: true}},
-				KubernetesDashboard: &corev1beta1.KubernetesDashboard{Addon: corev1beta1.Addon{Enabled: true}},
 			},
 			DNS:                    &corev1beta1.DNS{Domain: ptr.To("example.com")},
 			Extensions:             []corev1beta1.Extension{{Type: "shoot-dns-service"}},
@@ -138,7 +136,7 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 	assert.Len(t, s.Spec.Provider.Workers[0].Taints, 1)
 	assert.Equal(t, "1.28.0", s.Spec.Kubernetes.Version)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeAPIServer.AuditConfig)
-	assert.NotNil(t, s.Spec.Kubernetes.KubeAPIServer.OIDCConfig) //nolint:staticcheck // SA1019
+	assert.NotEmpty(t, s.Spec.Kubernetes.KubeAPIServer.StructuredAuthentication.ConfigMapName)
 	assert.Len(t, s.Spec.Kubernetes.KubeAPIServer.AdmissionPlugins, 1)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeControllerManager)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeScheduler)
@@ -149,7 +147,6 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 	assert.NotNil(t, s.Spec.ControlPlane)
 	assert.NotNil(t, s.Spec.Hibernation)
 	assert.NotNil(t, s.Spec.Maintenance)
-	assert.NotNil(t, s.Spec.Addons)
 	assert.NotNil(t, s.Spec.DNS)
 	assert.Len(t, s.Spec.Extensions, 1)
 	assert.NotNil(t, s.Spec.SecretBindingName) //nolint:staticcheck // SA1019
@@ -240,7 +237,6 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 			AdvertisedAddresses:        []corev1beta1.ShootAdvertisedAddress{{Name: "ext"}},
 			ClusterIdentity:            ptr.To("id"),
 			Credentials:                &corev1beta1.ShootCredentials{},
-			EncryptedResources:         []string{"secrets"}, //nolint:staticcheck // SA1019
 			ObservedGeneration:         5,
 			RetryCycleStartTime:        &metav1.Time{},
 			SeedName:                   ptr.To("seed-1"),
@@ -319,7 +315,6 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 	assert.Nil(t, kas.DefaultUnreachableTolerationSeconds)
 	assert.Nil(t, kas.EventTTL)
 	assert.Nil(t, kas.EncryptionConfig)
-	assert.Nil(t, kas.StructuredAuthentication)
 	assert.Nil(t, kas.StructuredAuthorization)
 	assert.Nil(t, kas.EnableAnonymousAuthentication) //nolint:staticcheck // SA1019
 	assert.Nil(t, kas.RuntimeConfig)
@@ -329,7 +324,6 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 	assert.Nil(t, s.Status.AdvertisedAddresses)
 	assert.Nil(t, s.Status.ClusterIdentity)
 	assert.Nil(t, s.Status.Credentials)
-	assert.Nil(t, s.Status.EncryptedResources) //nolint:staticcheck // SA1019
 	assert.Equal(t, int64(0), s.Status.ObservedGeneration)
 	assert.Nil(t, s.Status.RetryCycleStartTime)
 	assert.Nil(t, s.Status.SeedName)

@@ -73,7 +73,6 @@ func transformShoot(obj any) (any, error) {
 	dst.Labels = retainStringMapKeys(src.Labels, corev1beta1constants.ShootStatus)
 
 	dst.Spec = corev1beta1.ShootSpec{
-		Addons:                 src.Spec.Addons,
 		ControlPlane:           src.Spec.ControlPlane,
 		CredentialsBindingName: src.Spec.CredentialsBindingName,
 		DNS:                    src.Spec.DNS,

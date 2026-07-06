@@ -95,10 +95,6 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 				TimeWindow: &corev1beta1.MaintenanceTimeWindow{Begin: "010000+0000", End: "020000+0000"},
 				AutoUpdate: &corev1beta1.MaintenanceAutoUpdate{KubernetesVersion: true},
 			},
-			Addons: &corev1beta1.Addons{
-				NginxIngress:        &corev1beta1.NginxIngress{Addon: corev1beta1.Addon{Enabled: true}},
-				KubernetesDashboard: &corev1beta1.KubernetesDashboard{Addon: corev1beta1.Addon{Enabled: true}},
-			},
 			DNS:                    &corev1beta1.DNS{Domain: ptr.To("example.com")},
 			Extensions:             []corev1beta1.Extension{{Type: "shoot-dns-service"}},
 			SecretBindingName:      ptr.To("sb-1"), //nolint:staticcheck // SA1019
@@ -151,7 +147,6 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 	assert.NotNil(t, s.Spec.ControlPlane)
 	assert.NotNil(t, s.Spec.Hibernation)
 	assert.NotNil(t, s.Spec.Maintenance)
-	assert.NotNil(t, s.Spec.Addons)
 	assert.NotNil(t, s.Spec.DNS)
 	assert.Len(t, s.Spec.Extensions, 1)
 	assert.NotNil(t, s.Spec.SecretBindingName) //nolint:staticcheck // SA1019

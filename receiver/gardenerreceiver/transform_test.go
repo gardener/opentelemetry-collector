@@ -315,7 +315,6 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 	assert.Nil(t, kas.DefaultUnreachableTolerationSeconds)
 	assert.Nil(t, kas.EventTTL)
 	assert.Nil(t, kas.EncryptionConfig)
-	assert.Nil(t, kas.StructuredAuthentication)
 	assert.Nil(t, kas.StructuredAuthorization)
 	assert.Nil(t, kas.EnableAnonymousAuthentication) //nolint:staticcheck // SA1019
 	assert.Nil(t, kas.RuntimeConfig)

@@ -140,7 +140,7 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 	assert.Len(t, s.Spec.Provider.Workers[0].Taints, 1)
 	assert.Equal(t, "1.28.0", s.Spec.Kubernetes.Version)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeAPIServer.AuditConfig)
-	assert.NotNil(t, s.Spec.Kubernetes.KubeAPIServer.OIDCConfig) //nolint:staticcheck // SA1019
+	assert.Empty(t, s.Spec.Kubernetes.KubeAPIServer.StructuredAuthentication.ConfigMapName)
 	assert.Len(t, s.Spec.Kubernetes.KubeAPIServer.AdmissionPlugins, 1)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeControllerManager)
 	assert.NotNil(t, s.Spec.Kubernetes.KubeScheduler)
@@ -242,7 +242,6 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 			AdvertisedAddresses:        []corev1beta1.ShootAdvertisedAddress{{Name: "ext"}},
 			ClusterIdentity:            ptr.To("id"),
 			Credentials:                &corev1beta1.ShootCredentials{},
-			EncryptedResources:         []string{"secrets"}, //nolint:staticcheck // SA1019
 			ObservedGeneration:         5,
 			RetryCycleStartTime:        &metav1.Time{},
 			SeedName:                   ptr.To("seed-1"),
@@ -331,7 +330,6 @@ func TestTransformShoot_StripsUnusedFields(t *testing.T) {
 	assert.Nil(t, s.Status.AdvertisedAddresses)
 	assert.Nil(t, s.Status.ClusterIdentity)
 	assert.Nil(t, s.Status.Credentials)
-	assert.Nil(t, s.Status.EncryptedResources) //nolint:staticcheck // SA1019
 	assert.Equal(t, int64(0), s.Status.ObservedGeneration)
 	assert.Nil(t, s.Status.RetryCycleStartTime)
 	assert.Nil(t, s.Status.SeedName)

@@ -63,7 +63,9 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 				Version: "1.28.0",
 				KubeAPIServer: &corev1beta1.KubeAPIServerConfig{
 					AuditConfig: &corev1beta1.AuditConfig{},
-					OIDCConfig:  &corev1beta1.OIDCConfig{}, //nolint:staticcheck // SA1019
+					StructuredAuthentication: &corev1beta1.StructuredAuthentication{
+						ConfigMapName: "config-map",
+					},
 					AdmissionPlugins: []corev1beta1.AdmissionPlugin{
 						{Name: "PodSecurity"},
 					},

@@ -146,10 +146,10 @@ func retainShootKubernetes(src corev1beta1.Kubernetes) corev1beta1.Kubernetes {
 	if src.KubeAPIServer != nil {
 		s := src.KubeAPIServer
 		dst.KubeAPIServer = &corev1beta1.KubeAPIServerConfig{
-			KubernetesConfig: s.KubernetesConfig,
-			AdmissionPlugins: s.AdmissionPlugins,
-			AuditConfig:      s.AuditConfig,
-			OIDCConfig:       s.OIDCConfig, //nolint:staticcheck // SA1019
+			KubernetesConfig:         s.KubernetesConfig,
+			AdmissionPlugins:         s.AdmissionPlugins,
+			AuditConfig:              s.AuditConfig,
+			StructuredAuthentication: s.StructuredAuthentication,
 		}
 	}
 

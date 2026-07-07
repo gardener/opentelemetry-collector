@@ -25,10 +25,10 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// nopHost is a minimal component.Host for unit tests.
-type nopHost struct{}
+// noopHost is a minimal component.Host for unit tests.
+type noopHost struct{}
 
-func (nopHost) GetExtensions() map[component.ID]component.Component { return nil }
+func (noopHost) GetExtensions() map[component.ID]component.Component { return nil }
 
 // startFakeNotifySocket opens a unix socket , points $NOTIFY_SOCKET at it, and
 // returns a channel that receives every payload systemd would have seen.
@@ -62,7 +62,7 @@ func TestStart_NoNotifySocket_IsNoop(t *testing.T) {
 	t.Setenv("NOTIFY_SOCKET", "")
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), nopHost{}))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
 	require.True(t, s.isNoop, "expected extension to run as no-op without NOTIFY_SOCKET")
 
 	// Shutdown must be safe even though we never registered a signal handler.
@@ -73,7 +73,7 @@ func TestReady_SendsREADY(t *testing.T) {
 	msgs := startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), nopHost{}))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 
 	require.NoError(t, s.Ready())
@@ -89,7 +89,7 @@ func TestNotReady_SendsSTOPPING(t *testing.T) {
 	msgs := startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), nopHost{}))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 
 	require.NoError(t, s.NotReady())
@@ -105,7 +105,7 @@ func TestSIGHUP_SendsRELOADING(t *testing.T) {
 	msgs := startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), nopHost{}))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 
 	require.NoError(t, syscall.Kill(os.Getpid(), syscall.SIGHUP))
@@ -122,7 +122,7 @@ func TestShutdown_IsIdempotent(t *testing.T) {
 	_ = startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), nopHost{}))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
 
 	require.NoError(t, s.Shutdown(context.Background()))
 	// Second call must not panic on close(closed channel).
@@ -144,28 +144,23 @@ func execAndCollect(ctx context.Context, t *testing.T, ctr testcontainers.Contai
 	return string(out)
 }
 
-// startSystemdContainer builds (or reuses) the sdnotify test image and starts
-// a fresh container running systemd as PID 1. The image is shared across test
-// cases via the Repo/Tag stable name and KeepImage=true, so only the first
-// test in a `go test` invocation pays the ocb build cost; subsequent cases
-// hit Docker's image cache and add only container-start latency.
-//
-// The wait strategy defers to the caller: waitCmd is passed straight to
-// wait.ForExec, so each case decides what "ready" means (unit active vs
-// unit failed vs systemd booted).
+// startSystemdContainer builds/reuses the test image described by the given
+// Dockerfile path and starts a fresh container running systemd as PID 1.
 func startSystemdContainer(
 	ctx context.Context,
 	t *testing.T,
+	dockerfile string,
 	waitCmd []string,
 	waitExitCode int,
 ) testcontainers.Container {
 	t.Helper()
 
+	repo := "otelcol-sdnotify-test-" + strings.TrimPrefix(filepath.Ext(dockerfile), ".")
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
 			Context:       "../..",
-			Dockerfile:    "extension/sdnotify/testdata/Dockerfile",
-			Repo:          "otelcol-sdnotify-test",
+			Dockerfile:    dockerfile,
+			Repo:          repo,
 			Tag:           "latest",
 			KeepImage:     true,
 			PrintBuildLog: true,
@@ -202,21 +197,23 @@ func startSystemdContainer(
 	return ctr
 }
 
-// TestSDNotify_LifecycleIntegration exercises the full sd_notify lifecycle
-// against a real systemd inside a container:
+// TestSDNotify_HappyPath_LifecycleIntegration exercises the full sd_notify
+// lifecycle against a real systemd inside a container, using the "happy"
+// scenario image (valid config, reachable exporter):
 //   - boot -> unit reaches active/running (only possible if READY=1 was sent)
 //   - SIGHUP -> the extension emits RELOADING=1 and otelcol's own reload
 //     drives NotReady/Ready, producing a STOPPING=1 -> READY=1 pair in the
 //     same PID (Type=notify-reload contract: no process cycling, NRestarts=0)
 //   - systemctl stop -> unit exits cleanly (Result=success), confirming
 //     STOPPING=1 was emitted before shutdown
-func TestSDNotify_LifecycleIntegration(t *testing.T) {
+func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(
 		ctx,
 		t,
+		"extension/sdnotify/testdata/Dockerfile.happy",
 		[]string{"systemctl", "is-active", "otelcol.service"},
 		0,
 	)
@@ -271,4 +268,101 @@ func TestSDNotify_LifecycleIntegration(t *testing.T) {
 	require.Contains(t, stopped, "ActiveState=inactive")
 	require.Contains(t, stopped, "Result=success",
 		"unit should exit cleanly after systemctl stop; show:\n%s", stopped)
+}
+
+// TestSDNotify_InvalidConfig_UnitFails verifies that when the collector config
+// is invalid (pipeline references an exporter that isn't declared), the
+// collector exits without ever sending READY=1 and systemd marks the unit as
+// failed. This is the negative branch of the sd_notify handshake: no READY=1
+// means systemd never considers the unit started.
+func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	t.Cleanup(cancel)
+
+	// `systemctl is-failed` exits 0 when the unit is in the failed state.
+	ctr := startSystemdContainer(
+		ctx,
+		t,
+		"extension/sdnotify/testdata/Dockerfile.invalidconfig",
+		[]string{"systemctl", "is-failed", "otelcol.service"},
+		0,
+	)
+
+	show := execAndCollect(ctx, t, ctr,
+		"systemctl", "show", "otelcol.service",
+		"-p", "ActiveState", "-p", "SubState", "-p", "Result",
+	)
+	require.Contains(t, show, "ActiveState=failed",
+		"unit should be failed with an invalid config; show:\n%s", show)
+	require.NotContains(t, show, "Result=success",
+		"failed unit must not report Result=success; show:\n%s", show)
+
+	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+	require.NotContains(t, journal, "sent READY=1 to systemd",
+		"collector must not have sent READY=1 with an invalid config; journal:\n%s", journal)
+}
+
+// TestSDNotify_BadExporter_ReachesReady verifies that an unreachable exporter
+// target does NOT prevent the extension from sending READY=1. The OTLP
+// exporter starts asynchronously (queue + retry), so the collector reaches
+// steady state and sdnotify signals systemd regardless of downstream health.
+func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	t.Cleanup(cancel)
+
+	ctr := startSystemdContainer(
+		ctx,
+		t,
+		"extension/sdnotify/testdata/Dockerfile.badexporter",
+		[]string{"systemctl", "is-active", "otelcol.service"},
+		0,
+	)
+
+	show := execAndCollect(ctx, t, ctr,
+		"systemctl", "show", "otelcol.service",
+		"-p", "ActiveState", "-p", "SubState",
+	)
+	require.Contains(t, show, "ActiveState=active",
+		"unit should be active even when the exporter target is unreachable; show:\n%s", show)
+
+	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+	require.Contains(t, journal, "sent READY=1 to systemd",
+		"expected READY=1 to be emitted with an unreachable exporter; journal:\n%s", journal)
+}
+
+// TestSDNotify_NoNotifySocket_NoopBranch verifies the extension's no-op
+// behavior when NOTIFY_SOCKET is unset. The unit uses Type=simple with
+// Environment=NOTIFY_SOCKET= so systemd does not provide the socket. The
+// collector must still start and stay running; the extension logs the no-op
+// warning and treats Ready() as a no-op.
+func TestSDNotify_NoNotifySocket_NoopBranch(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	t.Cleanup(cancel)
+
+	ctr := startSystemdContainer(
+		ctx,
+		t,
+		"extension/sdnotify/testdata/Dockerfile.nonotifysocket",
+		[]string{"systemctl", "is-active", "otelcol.service"},
+		0,
+	)
+
+	// Type=simple flips the unit to active as soon as the process is forked,
+	// which can race the collector's own startup logs. Poll the journal until
+	// both extension log lines have landed.
+	require.Eventually(t, func() bool {
+		journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+		return strings.Contains(journal, "NOTIFY_SOCKET is not set; sd_notify support is disabled") &&
+			strings.Contains(journal, "NOTIFY_SOCKET not set; READY=1 was a no-op")
+	}, 30*time.Second, 500*time.Millisecond,
+		"expected sdnotify no-op warning + READY=1 no-op log lines with unset NOTIFY_SOCKET")
+
+	// And the unit must still be healthy - the extension must not have
+	// crashed the process just because sd_notify was disabled.
+	show := execAndCollect(ctx, t, ctr,
+		"systemctl", "show", "otelcol.service",
+		"-p", "ActiveState", "-p", "SubState",
+	)
+	require.Contains(t, show, "ActiveState=active",
+		"unit should stay active with NOTIFY_SOCKET unset; show:\n%s", show)
 }

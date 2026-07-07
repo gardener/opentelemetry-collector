@@ -1,7 +1,7 @@
 FROM golang:1.26.2 AS build-stage
 
 ARG OCB_VERSION=v0.155.0
-RUN go install go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} && \ 
+RUN go install go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} && \
     mv /go/bin/builder /usr/local/bin/ocb
 
 WORKDIR /src
@@ -18,13 +18,39 @@ RUN apt-get update \
         systemd systemd-sysv procps ca-certificates
 
 COPY --from=build-stage /build/_out/otelcol /bin/otelcol
+
+# Inline collector config: healthy pipeline with a debug exporter. The
+# sdnotify extension is enabled so systemd receives READY=1 once the
+# pipelines are up.
+RUN mkdir -p /etc/otelcol && cat <<'EOF' > /etc/otelcol/config.yaml
+extensions:
+  sdnotify:
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+
+exporters:
+  debug: {}
+
+service:
+  extensions: [sdnotify]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+EOF
+
+# Shared systemd unit: Type=notify so systemd waits for READY=1 from the
+# sdnotify extension before marking the unit active.
 COPY extension/sdnotify/testdata/otelcol.service /etc/systemd/system/otelcol.service
-COPY extension/sdnotify/testdata/otelcol-config.yaml /etc/otelcol/config.yaml
 RUN ln -s /etc/systemd/system/otelcol.service /etc/systemd/system/multi-user.target.wants/otelcol.service
 
 # To allow systemd (and other programs) to identify that it is executed within
-# a container, please set the $container environment variable for PID 1 in the 
-# container to a short lowercase string identifying your implementation. 
+# a container, please set the $container environment variable for PID 1 in the
+# container to a short lowercase string identifying your implementation.
 # https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#environment-variables
 ENV container=docker
 

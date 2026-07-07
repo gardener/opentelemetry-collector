@@ -54,8 +54,7 @@
     {
       "groupName": "Gardener",
       "matchPackageNames": [
-        "github.com/gardener/gardener",
-        "/^github\\.com\\/gardener\\/gardener\\//"
+        "/^github\\.com\\/gardener\\/gardener(\\/|$)/"
       ]
     },
     // Group golang.org/x packages

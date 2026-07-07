@@ -226,8 +226,8 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 
 	// Wait for otelcol's reload to complete: RELOADING=1 emitted by the
 	// extension, plus a second READY=1 from the rebuilt pipelines.
+	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
 	require.Eventually(t, func() bool {
-		journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
 		return strings.Contains(journal, "sent RELOADING=1 to systemd") &&
 			strings.Count(journal, "sent READY=1 to systemd") >= 2
 	}, 15*time.Second, 200*time.Millisecond,
@@ -237,7 +237,7 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	// reload, not a supervisor-driven restart.
 	show := execAndCollect(ctx, t, ctr,
 		"systemctl", "show", "otelcol.service",
-		"-p", "ActiveState", "-p", "SubState", "-p", "MainPID", "-p", "NRestarts",
+		"-p", "ActiveState", "-p", "SubState", "-p", "NRestarts",
 	)
 	require.Contains(t, show, "ActiveState=active",
 		"unit should stay active after SIGHUP-triggered in-process reload; show:\n%s", show)
@@ -251,7 +251,6 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 
 	// The journal should contain the full reload sequence:
 	// RELOADING=1 -> STOPPING=1 (from PipelineWatcher.NotReady) -> READY=1.
-	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
 	require.Contains(t, journal, "sent RELOADING=1 to systemd",
 		"expected RELOADING=1 log line after SIGHUP; journal:\n%s", journal)
 	require.Contains(t, journal, "sent STOPPING=1 to systemd",

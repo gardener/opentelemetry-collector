@@ -49,6 +49,14 @@
       "groupName": "Kubernetes dependencies",
       "matchPackageNames": ["/^k8s\\.io\\//", "/^sigs\\.k8s\\.io\\//"]
     },
+    // Group gardener modules so github.com/gardener/gardener and
+    // github.com/gardener/gardener/pkg/apis are bumped together
+    {
+      "groupName": "Gardener",
+      "matchPackageNames": [
+        "/^github\\.com\\/gardener\\/gardener(\\/|$)/"
+      ]
+    },
     // Group golang.org/x packages
     {
       "groupName": "golang.org/x",

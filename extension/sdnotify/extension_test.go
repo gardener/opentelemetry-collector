@@ -145,13 +145,13 @@ func execAndCollect(ctx context.Context, t *testing.T, ctr testcontainers.Contai
 }
 
 // startSystemdContainer builds/reuses the test image described by the given
-// Dockerfile path and starts a fresh container running systemd as PID 1.
+// Dockerfile path and starts a fresh container running systemd as PID 1. The
+// wait strategy runs waitCmd until it exits 0 (or the startup timeout expires).
 func startSystemdContainer(
 	ctx context.Context,
 	t *testing.T,
 	dockerfile string,
 	waitCmd []string,
-	waitExitCode int,
 ) testcontainers.Container {
 	t.Helper()
 
@@ -184,7 +184,7 @@ func startSystemdContainer(
 		WaitingFor: wait.ForExec(waitCmd).
 			WithStartupTimeout(60 * time.Second).
 			WithPollInterval(1 * time.Second).
-			WithExitCode(waitExitCode),
+			WithExitCode(0),
 	}
 
 	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -215,7 +215,6 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 		t,
 		"extension/sdnotify/testdata/Dockerfile.happy",
 		[]string{"systemctl", "is-active", "otelcol.service"},
-		0,
 	)
 	beforePID := strings.TrimSpace(
 		execAndCollect(ctx, t, ctr, "systemctl", "show", "otelcol.service", "-p", "MainPID"),
@@ -284,7 +283,6 @@ func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
 		t,
 		"extension/sdnotify/testdata/Dockerfile.invalidconfig",
 		[]string{"systemctl", "is-failed", "otelcol.service"},
-		0,
 	)
 
 	show := execAndCollect(ctx, t, ctr,
@@ -314,7 +312,6 @@ func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 		t,
 		"extension/sdnotify/testdata/Dockerfile.badexporter",
 		[]string{"systemctl", "is-active", "otelcol.service"},
-		0,
 	)
 
 	show := execAndCollect(ctx, t, ctr,
@@ -343,7 +340,6 @@ func TestSDNotify_NoNotifySocket_NoopBranch(t *testing.T) {
 		t,
 		"extension/sdnotify/testdata/Dockerfile.nonotifysocket",
 		[]string{"systemctl", "is-active", "otelcol.service"},
-		0,
 	)
 
 	// Type=simple flips the unit to active as soon as the process is forked,

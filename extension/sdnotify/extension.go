@@ -113,11 +113,12 @@ func (s *sdnotify) Shutdown(_ context.Context) error {
 
 func (s *sdnotify) Ready() error {
 	sent, err := daemon.SdNotify(false, daemon.SdNotifyReady)
-	if err != nil {
+	switch {
+	case err != nil:
 		return fmt.Errorf("sdnotify READY=1: %w", err)
-	} else if sent {
+	case sent:
 		s.logger.Info("sdnotify: sent READY=1 to systemd")
-	} else {
+	default:
 		s.logger.Info("sdnotify: NOTIFY_SOCKET not set; READY=1 was a no-op")
 	}
 	return nil

@@ -1,0 +1,21 @@
+dist:
+  name: otelcol
+  description: otelcol with sdnotify (integration-test build)
+  output_path: /build/_out
+  version: 0.0.0-test
+
+extensions:
+  - gomod: github.com/gardener/opentelemetry-collector/extension/sdnotify v0.0.0
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.155.0
+
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.155.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.155.0
+
+processors: []
+connectors: []
+
+replaces:
+  - github.com/gardener/opentelemetry-collector/extension/sdnotify => /src/extension/sdnotify

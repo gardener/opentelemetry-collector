@@ -1,0 +1,43 @@
+FROM golang:1.26.2 AS build-stage
+
+ARG OCB_VERSION=v0.155.0
+RUN go install go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} && \
+    mv /go/bin/builder /usr/local/bin/ocb
+
+WORKDIR /src
+COPY . /src
+
+RUN mkdir -p /build/_out \
+ && ocb --config=/src/extension/sdnotify/testdata/manifest.yaml \
+ && test -x /build/_out/otelcol
+
+FROM debian:12 AS run-stage
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        systemd systemd-sysv procps ca-certificates
+
+COPY --from=build-stage /build/_out/otelcol /bin/otelcol
+
+# Healthy collector config: valid pipeline with a debug exporter. The
+# sdnotify extension is enabled so systemd receives READY=1 once the
+# pipelines are up.
+COPY extension/sdnotify/testdata/otelcol-config.yaml /etc/otelcol/config.yaml
+
+# Shared systemd unit: Type=notify so systemd waits for READY=1 from the
+# sdnotify extension before marking the unit active.
+COPY extension/sdnotify/testdata/otelcol.service /etc/systemd/system/otelcol.service
+RUN ln -s /etc/systemd/system/otelcol.service /etc/systemd/system/multi-user.target.wants/otelcol.service
+
+# To allow systemd (and other programs) to identify that it is executed within
+# a container, please set the $container environment variable for PID 1 in the
+# container to a short lowercase string identifying your implementation.
+# https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#environment-variables
+ENV container=docker
+
+# If the container manager wants to cleanly shut down the container, it might be
+# a good idea to send SIGRTMIN+3 to its init process. systemd will then do a clean shutdown.
+# https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#advanced-integration
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/lib/systemd/systemd"]

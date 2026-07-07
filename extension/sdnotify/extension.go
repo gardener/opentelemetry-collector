@@ -97,6 +97,37 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 		}
 	}()
 
+	// Watchdog auto-enables whenever systemd has set WATCHDOG_USEC for our
+	// PID. SdWatchdogEnabled returns 0 when it didn't, or when WATCHDOG_PID
+	// points at a different process - both are valid "not enabled" states
+	// we treat as a no-op.
+	duration, err := daemon.SdWatchdogEnabled(false)
+	switch {
+	case err != nil:
+		s.logger.Debug("sdnotify: SdWatchdogEnabled returned error; watchdog disabled",
+			zap.Error(err))
+	case duration == 0:
+		s.logger.Debug("sdnotify: WATCHDOG_USEC not set; watchdog disabled")
+	default:
+		go func() {
+			// Per sd_watchdog_enabled(3): It is recommended that a daemon sends a keep-alive
+			// notification message to the service manager every half of the time returned here.
+			tickInterval := duration / 2
+			ticker := time.NewTicker(tickInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-s.shutdownCh:
+					return
+				case <-ticker.C:
+					if _, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
+						s.logger.Debug("sdnotify WATCHDOG=1 failed", zap.Error(err))
+					}
+				}
+			}
+		}()
+	}
+
 	return nil
 }
 

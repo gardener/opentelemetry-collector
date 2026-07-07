@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/gardener/gardener v1.146.0
-	github.com/gardener/gardener/pkg/apis v1.146.0
+	github.com/gardener/gardener/pkg/apis v1.146.1
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v1.61.0
 	go.opentelemetry.io/collector/component/componenttest v0.155.0

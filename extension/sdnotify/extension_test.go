@@ -232,14 +232,16 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	}, 15*time.Second, 200*time.Millisecond,
 		"RELOADING=1 + second READY=1 in journal after SIGHUP-triggered reload")
 
-	// Unit must still be active with the same MainPID: this was an in-process
-	// reload, not a supervisor-driven restart.
-	show := execAndCollect(ctx, t, ctr,
-		"systemctl", "show", "otelcol.service",
-		"-p", "ActiveState", "-p", "SubState", "-p", "NRestarts",
-	)
-	require.Contains(t, show, "ActiveState=active",
-		"unit should stay active after SIGHUP-triggered in-process reload; show:\n%s", show)
+	// Unit must be back to active with no supervisor restart.
+	var show string
+	require.Eventually(t, func() bool {
+		show = execAndCollect(ctx, t, ctr,
+			"systemctl", "show", "otelcol.service",
+			"-p", "ActiveState", "-p", "SubState", "-p", "NRestarts",
+		)
+		return strings.Contains(show, "ActiveState=active")
+	}, 15*time.Second, 200*time.Millisecond,
+		"unit should return to active after SIGHUP-triggered in-process reload; last show:\n%s", show)
 	require.Contains(t, show, "NRestarts=0",
 		"SIGHUP must not trigger a supervisor restart; show:\n%s", show)
 	afterPID := strings.TrimSpace(

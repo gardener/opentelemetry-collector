@@ -115,8 +115,7 @@ func (s *sdnotify) Ready() error {
 	sent, err := daemon.SdNotify(false, daemon.SdNotifyReady)
 	if err != nil {
 		return fmt.Errorf("sdnotify READY=1: %w", err)
-	}
-	if sent {
+	} else if sent {
 		s.logger.Info("sdnotify: sent READY=1 to systemd")
 	} else {
 		s.logger.Info("sdnotify: NOTIFY_SOCKET not set; READY=1 was a no-op")

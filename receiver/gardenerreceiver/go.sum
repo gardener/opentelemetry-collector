@@ -10,8 +10,8 @@ github.com/emicklei/go-restful/v3 v3.13.0 h1:C4Bl2xDndpU6nJ4bc1jXd+uTmYPVUwkD6bF
 github.com/emicklei/go-restful/v3 v3.13.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/fxamacker/cbor/v2 v2.9.0 h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=
 github.com/fxamacker/cbor/v2 v2.9.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
-github.com/gardener/gardener v1.146.0 h1:4aLyMBQqtFQvRqrpnruNz01ZG0Ge4NYDVv///zcFvok=
-github.com/gardener/gardener v1.146.0/go.mod h1:BL4tsbuXJkgPlotTOFcU0BKQHAf21l6z/OQo7A3grTU=
+github.com/gardener/gardener v1.146.1 h1:mbKYQVmuiqI+YdivnDTqGWp34rZ5y3GlK39uZSpllWA=
+github.com/gardener/gardener v1.146.1/go.mod h1:BL4tsbuXJkgPlotTOFcU0BKQHAf21l6z/OQo7A3grTU=
 github.com/gardener/gardener/pkg/apis v1.146.0 h1:CMjfOkjAqLytEe29MgSfx/HQfWvXeg7BNc5xC+OHHu4=
 github.com/gardener/gardener/pkg/apis v1.146.0/go.mod h1:S6v1kxYVnqIYsGE2P3emsTUs27bduXEHRYpLx4Zpd9I=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=

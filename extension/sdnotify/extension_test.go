@@ -182,8 +182,8 @@ func startSystemdContainer(
 			}
 		},
 		WaitingFor: wait.ForExec(waitCmd).
-			WithStartupTimeout(3 * time.Minute).
-			WithPollInterval(2 * time.Second).
+			WithStartupTimeout(60 * time.Second).
+			WithPollInterval(1 * time.Second).
 			WithExitCode(waitExitCode),
 	}
 
@@ -207,7 +207,7 @@ func startSystemdContainer(
 //   - systemctl stop -> unit exits cleanly (Result=success), confirming
 //     STOPPING=1 was emitted before shutdown
 func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(
@@ -276,7 +276,7 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 // failed. This is the negative branch of the sd_notify handshake: no READY=1
 // means systemd never considers the unit started.
 func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
 	// `systemctl is-failed` exits 0 when the unit is in the failed state.
@@ -307,7 +307,7 @@ func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
 // exporter starts asynchronously (queue + retry), so the collector reaches
 // steady state and sdnotify signals systemd regardless of downstream health.
 func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(
@@ -336,7 +336,7 @@ func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 // collector must still start and stay running; the extension logs the no-op
 // warning and treats Ready() as a no-op.
 func TestSDNotify_NoNotifySocket_NoopBranch(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(

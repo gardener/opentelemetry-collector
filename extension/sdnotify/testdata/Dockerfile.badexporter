@@ -19,32 +19,11 @@ RUN apt-get update \
 
 COPY --from=build-stage /build/_out/otelcol /bin/otelcol
 
-# Inline collector config: healthy pipeline plumbing but the OTLP exporter
-# is pointed at a port with nothing listening. The exporter starts fine
-# (it queues + retries), the collector reaches steady state, and sdnotify
-# sends READY=1. This proves the extension does not gate READY=1 on
-# downstream/exporter health.
-RUN mkdir -p /etc/otelcol && cat <<'EOF' > /etc/otelcol/config.yaml
-extensions:
-  sdnotify:
-
-receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 127.0.0.1:4317
-
-exporters:
-  otlp/nonexistent:
-    endpoint: 127.0.0.1:65535
-
-service:
-  extensions: [sdnotify]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [otlp/nonexistent]
-EOF
+# Runtime-bad config: OTLP exporter points at a port with nothing listening.
+# The exporter starts fine (it queues + retries), the collector reaches
+# steady state, and sdnotify sends READY=1. This proves the extension does
+# not gate READY=1 on downstream/exporter health.
+COPY extension/sdnotify/testdata/otelcol-bad-exporter.yaml /etc/otelcol/config.yaml
 
 # Shared systemd unit: same Type=notify shape as the happy path — we expect
 # the unit to reach active despite the unreachable exporter target.

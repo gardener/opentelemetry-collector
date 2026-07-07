@@ -19,34 +19,15 @@ RUN apt-get update \
 
 COPY --from=build-stage /build/_out/otelcol /bin/otelcol
 
-# Inline collector config: pipeline references an exporter (`otlp/undeclared`)
-# that is not declared under `exporters:`. The collector rejects this at load
-# time and exits nonzero, so systemd never sees READY=1 and the unit ends up
-# in a failed state.
-RUN mkdir -p /etc/otelcol && cat <<'EOF' > /etc/otelcol/config.yaml
-extensions:
-  sdnotify:
+# Invalid config: the traces pipeline references an exporter that isn't
+# declared under `exporters:`, so the collector exits nonzero at load time
+# and systemd never sees READY=1.
+COPY extension/sdnotify/testdata/otelcol-invalid-config.yaml /etc/otelcol/config.yaml
 
-receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 127.0.0.1:4317
-
-exporters:
-  debug: {}
-
-service:
-  extensions: [sdnotify]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [otlp/undeclared]
-EOF
-
-# Shared systemd unit: Type=notify. Since the collector exits before sending
-# READY=1, systemd will fail the unit after Restart=on-failure hits its
-# start-limit burst.
+# Shared systemd unit: Type=notify. Because the collector exits before
+# sending READY=1, systemd's Restart=on-failure loop hits the start-limit
+# burst and the unit ends up in a persistent failed state (which is what
+# the test polls for via `systemctl is-failed`).
 COPY extension/sdnotify/testdata/otelcol.service /etc/systemd/system/otelcol.service
 RUN ln -s /etc/systemd/system/otelcol.service /etc/systemd/system/multi-user.target.wants/otelcol.service
 

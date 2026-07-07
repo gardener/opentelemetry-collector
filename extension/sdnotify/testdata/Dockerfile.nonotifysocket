@@ -19,30 +19,14 @@ RUN apt-get update \
 
 COPY --from=build-stage /build/_out/otelcol /bin/otelcol
 
-RUN mkdir -p /etc/otelcol && cat <<'EOF' > /etc/otelcol/config.yaml
-extensions:
-  sdnotify:
+# Healthy collector config - this scenario is about the unit environment,
+# not the config.
+COPY extension/sdnotify/testdata/otelcol-config.yaml /etc/otelcol/config.yaml
 
-receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 127.0.0.1:4317
-
-exporters:
-  debug: {}
-
-service:
-  extensions: [sdnotify]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [debug]
-EOF
-
-# Type=simple so the unit does not wait for READY=1, and Environment=NOTIFY_SOCKET=
-# explicitly clears the variable that systemd would normally set for Type=notify units.
-# This exercises the extension's no-op branch: the collector runs, sdnotify logs the
+# Scenario-specific systemd unit: Type=simple so the unit does not wait for
+# READY=1, and Environment=NOTIFY_SOCKET= explicitly clears the variable
+# that systemd would normally set for Type=notify units. This exercises the
+# extension's no-op branch: the collector runs, sdnotify logs the
 # "NOTIFY_SOCKET is not set" warning, and no sd_notify traffic is emitted —
 # but the process must still start and stay running.
 COPY extension/sdnotify/testdata/otelcol-nonotify.service /etc/systemd/system/otelcol.service

@@ -103,17 +103,16 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 	signal.Notify(s.termCh, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		select {
-		case <-s.shutdownCh:
+		if _, ok := <-s.termCh; !ok {
 			return
-		case <-s.termCh:
-			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
-			if err != nil {
-				s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
-				return
-			} else if sent {
-				s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
-			}
+		}
+
+		sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
+		if err != nil {
+			s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
+			return
+		} else if sent {
+			s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
 		}
 	}()
 

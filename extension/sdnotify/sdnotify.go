@@ -157,7 +157,9 @@ func (s *sdnotify) Shutdown(_ context.Context) error {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownCh)
 		signal.Stop(s.sigCh)
+		close(s.sigCh)
 		signal.Stop(s.termCh)
+		close(s.termCh)
 	})
 	return nil
 }

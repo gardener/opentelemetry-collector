@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
+Type=notify-reload
 NotifyAccess=main
 ExecStart=/bin/otelcol --config=/etc/otelcol/config.yaml
 TimeoutStartSec=60

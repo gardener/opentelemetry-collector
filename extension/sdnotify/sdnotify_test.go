@@ -86,19 +86,19 @@ func TestReady_SendsREADY(t *testing.T) {
 	}
 }
 
-func TestNotReady_SendsSTOPPING(t *testing.T) {
+func TestSIGTERM_SendsSTOPPING(t *testing.T) {
 	msgs := startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
 	require.NoError(t, s.Start(context.Background(), noopHost{}))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 
-	require.NoError(t, s.NotReady())
+	require.NoError(t, syscall.Kill(os.Getpid(), syscall.SIGTERM))
 	select {
 	case got := <-msgs:
 		require.Equal(t, "STOPPING=1", got)
 	case <-time.After(2 * time.Second):
-		t.Fatal("no datagram received on fake NOTIFY_SOCKET")
+		t.Fatal("no STOPPING=1 datagram received after SIGTERM")
 	}
 }
 
@@ -230,10 +230,9 @@ func startSystemdContainer(
 // scenario image (valid config, reachable exporter):
 //   - boot -> unit reaches active/running (only possible if READY=1 was sent)
 //   - SIGHUP -> the extension emits RELOADING=1 and otelcol's own reload
-//     drives NotReady/Ready, producing a STOPPING=1 -> READY=1 pair in the
-//     same PID (Type=notify-reload contract: no process cycling, NRestarts=0)
-//   - systemctl stop -> unit exits cleanly (Result=success), confirming
-//     STOPPING=1 was emitted before shutdown
+//     rebuilds the pipelines, producing a second READY=1 in the same PID.
+//   - systemctl stop -> the extension's SIGTERM handler emits STOPPING=1
+//     and the unit exits cleanly (Result=success)
 func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
@@ -278,17 +277,19 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	require.Equal(t, beforePID, afterPID,
 		"MainPID must not change on in-process reload; before=%s after=%s", beforePID, afterPID)
 
-	// The journal should contain the full reload sequence:
-	// RELOADING=1 -> STOPPING=1 (from PipelineWatcher.NotReady) -> READY=1.
+	// Reload journal: RELOADING=1 + >=2 READY=1 - the second is the post-reload
+	// ready. STOPPING=1 must NOT appear yet - the extension only emits it on
+	// genuine termination (SIGINT / SIGTERM), never mid-reload.
 	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
 	require.Contains(t, journal, "sent RELOADING=1 to systemd",
 		"expected RELOADING=1 log line after SIGHUP; journal:\n%s", journal)
-	require.Contains(t, journal, "sent STOPPING=1 to systemd",
-		"expected STOPPING=1 log line from PipelineWatcher.NotReady during reload; journal:\n%s", journal)
+	require.NotContains(t, journal, "sent STOPPING=1 to systemd",
+		"STOPPING=1 must not appear during an in-process reload; journal:\n%s", journal)
 	require.GreaterOrEqual(t, strings.Count(journal, "sent READY=1 to systemd"), 2,
 		"expected >=2 READY=1 log lines (boot + reload); journal:\n%s", journal)
 
-	// Shutdown flow
+	// Shutdown flow: systemctl stop SIGTERMs the process; the extension's
+	// termination handler must emit STOPPING=1 before the unit exits.
 	_ = execAndCollect(ctx, t, ctr, "systemctl", "stop", "otelcol.service")
 	stopped := execAndCollect(ctx, t, ctr,
 		"systemctl", "show", "otelcol.service",
@@ -297,6 +298,10 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	require.Contains(t, stopped, "ActiveState=inactive")
 	require.Contains(t, stopped, "Result=success",
 		"unit should exit cleanly after systemctl stop; show:\n%s", stopped)
+
+	journal = execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+	require.Contains(t, journal, "sent STOPPING=1 to systemd",
+		"expected STOPPING=1 log line after systemctl stop; journal:\n%s", journal)
 }
 
 // TestSDNotify_InvalidConfig_UnitFails verifies that when the collector config

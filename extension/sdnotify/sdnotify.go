@@ -27,6 +27,7 @@ type sdnotify struct {
 	isNoop bool
 
 	sigCh        chan os.Signal
+	termCh       chan os.Signal
 	shutdownCh   chan struct{}
 	shutdownOnce sync.Once
 }
@@ -44,6 +45,7 @@ func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 		cfg:        cfg,
 		logger:     logger,
 		sigCh:      make(chan os.Signal, 1),
+		termCh:     make(chan os.Signal, 1),
 		shutdownCh: make(chan struct{}),
 	}
 }
@@ -97,6 +99,24 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 		}
 	}()
 
+	// STOPPING=1 must be sent only on real termination, never during a reload.
+	signal.Notify(s.termCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		select {
+		case <-s.shutdownCh:
+			return
+		case <-s.termCh:
+			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
+			if err != nil {
+				s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
+				return
+			} else if sent {
+				s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
+			}
+		}
+	}()
+
 	// Watchdog auto-enables whenever systemd has set WATCHDOG_USEC for our
 	// PID. SdWatchdogEnabled returns 0 when it didn't, or when WATCHDOG_PID
 	// points at a different process - both are valid "not enabled" states
@@ -138,6 +158,7 @@ func (s *sdnotify) Shutdown(_ context.Context) error {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownCh)
 		signal.Stop(s.sigCh)
+		signal.Stop(s.termCh)
 	})
 	return nil
 }
@@ -156,14 +177,5 @@ func (s *sdnotify) Ready() error {
 }
 
 func (s *sdnotify) NotReady() error {
-	sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
-	if err != nil {
-		// Best-effort: don't block shutdown on a notify failure.
-		s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
-		return nil
-	}
-	if sent {
-		s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
-	}
 	return nil
 }

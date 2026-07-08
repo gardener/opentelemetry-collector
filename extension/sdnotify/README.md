@@ -17,8 +17,8 @@ unit it will:
 
 - send `READY=1` once all pipelines have started, so `systemctl start` returns
   only when the collector is actually accepting data;
-- send `STOPPING=1` when the pipelines shut down, so systemd knows the process
-  is going away deliberately;
+- send `STOPPING=1` on genuine process termination (`SIGINT` / `SIGTERM`),
+  so systemd knows the process is going away deliberately;
 - on `SIGHUP` send `RELOADING=1` (paired with `MONOTONIC_USEC` as required by 
   `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress;
 - when systemd has set `WATCHDOG_USEC` for the collector's PID, send
@@ -34,9 +34,16 @@ The extension does not itself drive a reload or cycle the process on SIGHUP.
 The OpenTelemetry Collector has its own SIGHUP handler that performs an
 **in-process** reload: it calls `service.Shutdown` and then re-runs
 `setupConfigurationComponents` to rebuild the pipelines from the current
-config on disk. That reload invokes `PipelineWatcher.NotReady` on this
-extension (which sends `STOPPING=1`) and, once the fresh pipelines are up,
-`PipelineWatcher.Ready` (which sends `READY=1` again).
+config on disk. On the incoming SIGHUP, the extension emits
+`RELOADING=1` (with `MONOTONIC_USEC`); once the rebuilt pipelines are up,
+`PipelineWatcher.Ready` is called on the fresh extension instance and it sends
+a second `READY=1`. `STOPPING=1` is deliberately NOT emitted during a reload -
+otelcol's reload path invokes `PipelineWatcher.NotReady` on this extension,
+but a reload is indistinguishable from a real shutdown at that hook, so
+`NotReady` is a no-op here. Under `Type=notify-reload`, sending `STOPPING=1`
+mid-reload would flip the unit into `deactivating` and ignore the subsequent
+`READY=1`. Instead, `STOPPING=1` is emitted from a dedicated `SIGINT`/`SIGTERM`
+handler in the extension, which fires only on genuine termination.
 
 ## Watchdog
 
@@ -98,6 +105,7 @@ With this unit:
 - `systemctl reload otelcol` sends `SIGHUP`; systemd tracks the reload via
   `RELOADING=1` -> `READY=1` and the collector re-reads its config in place
   (`MainPID` unchanged).
-- `systemctl stop otelcol` sees `STOPPING=1` as the pipelines drain.
+- `systemctl stop otelcol` sends `SIGTERM`; the extension emits `STOPPING=1`
+  from its dedicated `SIGINT`/`SIGTERM` handler, then the pipelines drain.
 - If the collector stops sending `WATCHDOG=1` for longer than `WatchdogSec`
   (e.g. it deadlocks), systemd restarts it.

@@ -11,7 +11,7 @@ RUN mkdir -p /build/_out \
  && ocb --config=/src/extension/sdnotify/testdata/manifest.yaml \
  && test -x /build/_out/otelcol
 
-FROM debian:12 AS run-stage
+FROM debian:13 AS run-stage
 
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \

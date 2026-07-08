@@ -20,7 +20,10 @@ unit it will:
 - send `STOPPING=1` when the pipelines shut down, so systemd knows the process
   is going away deliberately;
 - on `SIGHUP` send `RELOADING=1` (paired with `MONOTONIC_USEC` as required by 
-  `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress.
+  `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress;
+- when systemd has set `WATCHDOG_USEC` for the collector's PID, send
+  `WATCHDOG=1` keep-alive notifications every `WATCHDOG_USEC / 2` for as long
+  as the collector is running, so systemd can restart the process if it hangs.
 
 When `$NOTIFY_SOCKET` is not set the extension logs a warning and stays a no-op 
 - it  will never fail collector startup.
@@ -34,6 +37,24 @@ The OpenTelemetry Collector has its own SIGHUP handler that performs an
 config on disk. That reload invokes `PipelineWatcher.NotReady` on this
 extension (which sends `STOPPING=1`) and, once the fresh pipelines are up,
 `PipelineWatcher.Ready` (which sends `READY=1` again).
+
+## Watchdog
+
+The watchdog is auto-enabled - there is no extension-level configuration. On
+startup the extension calls `daemon.SdWatchdogEnabled` -  if it returns a
+non-zero duration (i.e. systemd set `WATCHDOG_USEC` and, when
+`WATCHDOG_PID` is set, it matches this process) a background goroutine sends
+`WATCHDOG=1` every `WATCHDOG_USEC / 2`, as recommended by
+[`sd_watchdog_enabled(3)`](https://www.man7.org/linux/man-pages/man3/sd_watchdog_enabled.3.html).
+The goroutine stops on collector shutdown.
+
+If `WATCHDOG_USEC` is unset, or `WATCHDOG_PID` points at a different process,
+the watchdog is a silent no-op - startup is never blocked and no error is
+returned.
+
+To enable it, set `WatchdogSec=` on the systemd unit. Pair it with
+`Restart=on-watchdog` (or `Restart=always`) if you want systemd to actually
+restart the process when keep-alives stop arriving.
 
 ## Configuration
 
@@ -62,7 +83,8 @@ After=network-online.target
 Type=notify-reload
 ExecStart=/usr/local/bin/otelcol --config=/etc/otelcol/config.yaml
 ReloadSignal=SIGHUP
-Restart=on-failure
+WatchdogSec=30s
+Restart=always
 RestartSec=2s
 
 [Install]
@@ -77,3 +99,5 @@ With this unit:
   `RELOADING=1` -> `READY=1` and the collector re-reads its config in place
   (`MainPID` unchanged).
 - `systemctl stop otelcol` sees `STOPPING=1` as the pipelines drain.
+- If the collector stops sending `WATCHDOG=1` for longer than `WatchdogSec`
+  (e.g. it deadlocks), systemd restarts it.

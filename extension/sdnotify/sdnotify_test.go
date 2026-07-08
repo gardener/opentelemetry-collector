@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -127,6 +128,33 @@ func TestShutdown_IsIdempotent(t *testing.T) {
 	require.NoError(t, s.Shutdown(context.Background()))
 	// Second call must not panic on close(closed channel).
 	require.NoError(t, s.Shutdown(context.Background()))
+}
+
+func TestWatchdog_SendsWATCHDOG(t *testing.T) {
+	msgs := startFakeNotifySocket(t)
+
+	t.Setenv("WATCHDOG_USEC", "100000") // 100ms
+	t.Setenv("WATCHDOG_PID", strconv.Itoa(os.Getpid()))
+
+	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
+	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 325*time.Millisecond)
+	defer cancel()
+
+	count := 0
+	for {
+		select {
+		case got := <-msgs:
+			require.Equal(t, "WATCHDOG=1", got)
+			count++
+		case <-ctx.Done():
+			require.Equal(t, 6, count,
+				"expected 6 WATCHDOG=1 notifications within 300ms, got %d", count)
+			return
+		}
+	}
 }
 
 // execAndCollect runs argv in the container and returns combined output.

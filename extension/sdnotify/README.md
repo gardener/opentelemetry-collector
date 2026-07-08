@@ -105,6 +105,7 @@ With this unit:
 - `systemctl reload otelcol` sends `SIGHUP`; systemd tracks the reload via
   `RELOADING=1` -> `READY=1` and the collector re-reads its config in place
   (`MainPID` unchanged).
-- `systemctl stop otelcol` sees `STOPPING=1` as the pipelines drain.
+- `systemctl stop otelcol` sends `SIGTERM`; the extension emits `STOPPING=1`
+  from its dedicated `SIGINT`/`SIGTERM` handler, then the pipelines drain.
 - If the collector stops sending `WATCHDOG=1` for longer than `WatchdogSec`
   (e.g. it deadlocks), systemd restarts it.

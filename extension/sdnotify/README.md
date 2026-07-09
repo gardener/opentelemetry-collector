@@ -15,10 +15,9 @@ The `sdnotify` extension integrates the collector with the
 When the collector runs under a `Type=notify` (or `Type=notify-reload`) systemd
 unit it will:
 
-- Send `READY=1` once all pipelines have started, so `systemctl start` returns
-  only when the collector is actually accepting data;
-- Send `STOPPING=1` on genuine process termination (`SIGINT` / `SIGTERM`),
-  so systemd knows the process is going away deliberately;
+- Send `READY=1` once all pipelines have started.
+- Send `STOPPING=1` when the process is shutting down after receiving SIGINT or
+  SIGTERM, so systemd knows the shutdown is intentional.
 - On `SIGHUP` send `RELOADING=1` (paired with `MONOTONIC_USEC` as required by 
   `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress.
   The extension does not itself drive a reload or cycle the process on SIGHUP.

@@ -55,10 +55,15 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 		return nil
 	}
 
-	// STOPPING=1 must be sent only on termination.
+	// STOPPING=1 must be sent only on genuine termination (SIGINT / SIGTERM),
 	s.termCtx, s.termCancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-s.termCtx.Done()
+
+		// Context can be cancled only by the cancel, method, which we call
+		if context.Cause(s.termCtx) == context.Canceled {
+			return
+		}
 
 		sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
 		if err != nil {

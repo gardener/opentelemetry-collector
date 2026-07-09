@@ -61,7 +61,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 		<-s.termCtx.Done()
 
 		// Context can be cancled only by the cancel, method, which we call
-		if context.Cause(s.termCtx) == context.Canceled {
+		if errors.Is(context.Cause(s.termCtx), context.Canceled) {
 			return
 		}
 

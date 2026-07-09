@@ -15,53 +15,21 @@ The `sdnotify` extension integrates the collector with the
 When the collector runs under a `Type=notify` (or `Type=notify-reload`) systemd
 unit it will:
 
-- send `READY=1` once all pipelines have started, so `systemctl start` returns
+- Send `READY=1` once all pipelines have started, so `systemctl start` returns
   only when the collector is actually accepting data;
-- send `STOPPING=1` on genuine process termination (`SIGINT` / `SIGTERM`),
+- Send `STOPPING=1` on genuine process termination (`SIGINT` / `SIGTERM`),
   so systemd knows the process is going away deliberately;
-- on `SIGHUP` send `RELOADING=1` (paired with `MONOTONIC_USEC` as required by 
-  `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress;
-- when systemd has set `WATCHDOG_USEC` for the collector's PID, send
-  `WATCHDOG=1` keep-alive notifications every `WATCHDOG_USEC / 2` for as long
-  as the collector is running, so systemd can restart the process if it hangs.
+- On `SIGHUP` send `RELOADING=1` (paired with `MONOTONIC_USEC` as required by 
+  `sd_notify(3)`) so systemd's state machine correctly reflects that a reload is in progress.
+  The extension does not itself drive a reload or cycle the process on SIGHUP.
+  The OpenTelemetry Collector has its own SIGHUP handler that performs an
+  **in-process** reload.
+- When systemd has set `WATCHDOG_USEC` for the collector's PID, send
+  `WATCHDOG=1` keep-alive notifications every `WATCHDOG_USEC / 2` as recommended
+  by [`sd_watchdog_enabled(3)`](https://www.man7.org/linux/man-pages/man3/sd_watchdog_enabled.3.html),
+  for as long as the collector is running, so systemd can restart the process if it hangs.
 
-When `$NOTIFY_SOCKET` is not set the extension logs a warning and stays a no-op 
-- it  will never fail collector startup.
-
-## How SIGHUP reload works
-
-The extension does not itself drive a reload or cycle the process on SIGHUP.
-The OpenTelemetry Collector has its own SIGHUP handler that performs an
-**in-process** reload: it calls `service.Shutdown` and then re-runs
-`setupConfigurationComponents` to rebuild the pipelines from the current
-config on disk. On the incoming SIGHUP, the extension emits
-`RELOADING=1` (with `MONOTONIC_USEC`); once the rebuilt pipelines are up,
-`PipelineWatcher.Ready` is called on the fresh extension instance and it sends
-a second `READY=1`. `STOPPING=1` is deliberately NOT emitted during a reload -
-otelcol's reload path invokes `PipelineWatcher.NotReady` on this extension,
-but a reload is indistinguishable from a real shutdown at that hook, so
-`NotReady` is a no-op here. Under `Type=notify-reload`, sending `STOPPING=1`
-mid-reload would flip the unit into `deactivating` and ignore the subsequent
-`READY=1`. Instead, `STOPPING=1` is emitted from a dedicated `SIGINT`/`SIGTERM`
-handler in the extension, which fires only on genuine termination.
-
-## Watchdog
-
-The watchdog is auto-enabled - there is no extension-level configuration. On
-startup the extension calls `daemon.SdWatchdogEnabled` -  if it returns a
-non-zero duration (i.e. systemd set `WATCHDOG_USEC` and, when
-`WATCHDOG_PID` is set, it matches this process) a background goroutine sends
-`WATCHDOG=1` every `WATCHDOG_USEC / 2`, as recommended by
-[`sd_watchdog_enabled(3)`](https://www.man7.org/linux/man-pages/man3/sd_watchdog_enabled.3.html).
-The goroutine stops on collector shutdown.
-
-If `WATCHDOG_USEC` is unset, or `WATCHDOG_PID` points at a different process,
-the watchdog is a silent no-op - startup is never blocked and no error is
-returned.
-
-To enable it, set `WatchdogSec=` on the systemd unit. Pair it with
-`Restart=on-watchdog` (or `Restart=always`) if you want systemd to actually
-restart the process when keep-alives stop arriving.
+When `$NOTIFY_SOCKET` is not set the extension logs a warning and stays a no-op - it  will never fail collector startup.
 
 ## Configuration
 
@@ -69,14 +37,10 @@ The extension takes no configuration:
 
 ```yaml
 extensions:
-  sdnotify:
+  sdnotify: {}
 
 service:
   extensions: [sdnotify]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [debug]
 ```
 
 ## Example systemd unit
@@ -96,15 +60,3 @@ RestartSec=2s
 [Install]
 WantedBy=multi-user.target
 ```
-
-With this unit:
-
-- `systemctl start otelcol` blocks until the collector's pipelines are up
-  (waits for `READY=1`).
-- `systemctl reload otelcol` sends `SIGHUP`; systemd tracks the reload via
-  `RELOADING=1` -> `READY=1` and the collector re-reads its config in place
-  (`MainPID` unchanged).
-- `systemctl stop otelcol` sends `SIGTERM`; the extension emits `STOPPING=1`
-  from its dedicated `SIGINT`/`SIGTERM` handler, then the pipelines drain.
-- If the collector stops sending `WATCHDOG=1` for longer than `WatchdogSec`
-  (e.g. it deadlocks), systemd restarts it.

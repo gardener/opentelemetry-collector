@@ -58,9 +58,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 	// STOPPING=1 must be sent only on termination.
 	s.termCtx, s.termCancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		if _, ok := <-s.termCtx.Done(); !ok {
-			return
-		}
+		<-s.termCtx.Done()
 
 		sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
 		if err != nil {
@@ -140,9 +138,11 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	// This extension should not stop the process, because the collector handles it by itself.
-	signal.Stop(s.sigCh)
-	s.termCancel()
+	if s.termCancel != nil {
+		// This extension should not stop the process, because the collector handles it by itself.
+		signal.Stop(s.sigCh)
+		s.termCancel()
+	}
 
 	return nil
 }

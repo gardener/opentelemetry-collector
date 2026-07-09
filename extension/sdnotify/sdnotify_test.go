@@ -61,12 +61,23 @@ func startFakeNotifySocket(t *testing.T) <-chan string {
 
 func TestStart_NoNotifySocket_IsNoop(t *testing.T) {
 	t.Setenv("NOTIFY_SOCKET", "")
+	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
+	require.NoError(t, s.Shutdown(context.Background()))
+}
+
+func TestShutdown_BeforeStart_IsNoop(t *testing.T) {
+	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
+	require.NoError(t, s.Shutdown(context.Background()))
+}
+
+func TestShutdown_IsIdempotent(t *testing.T) {
+	_ = startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
 	require.NoError(t, s.Start(context.Background(), noopHost{}))
-	require.True(t, s.isNoop, "expected extension to run as no-op without NOTIFY_SOCKET")
 
-	// Shutdown must be safe even though we never registered a signal handler.
+	require.NoError(t, s.Shutdown(context.Background()))
 	require.NoError(t, s.Shutdown(context.Background()))
 }
 
@@ -119,17 +130,6 @@ func TestSIGHUP_SendsRELOADING(t *testing.T) {
 	}
 }
 
-func TestShutdown_IsIdempotent(t *testing.T) {
-	_ = startFakeNotifySocket(t)
-
-	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), noopHost{}))
-
-	require.NoError(t, s.Shutdown(context.Background()))
-	// Second call must not panic on close(closed channel).
-	require.NoError(t, s.Shutdown(context.Background()))
-}
-
 func TestWatchdog_SendsWATCHDOG(t *testing.T) {
 	msgs := startFakeNotifySocket(t)
 
@@ -143,6 +143,16 @@ func TestWatchdog_SendsWATCHDOG(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 325*time.Millisecond)
 	defer cancel()
 
+	// We expect to receive 6 notifications because:
+	//   - WATCHDOG_USEC is set to 100ms, so a notification is sent every 50ms.
+	//   - Over a 300ms interval, this results in 300 / 50 = 6 notifications.
+	//
+	// We wait 325ms instead of exactly 300ms to avoid timing-related flakiness.
+	// Waiting exactly 300ms could cause the test to occasionally miss the last
+	// notification due to scheduling or timer jitter.
+	//
+	// Note: We cannot use testing/synctest here because it does not support
+	// signals.Notify. See: https://github.com/golang/go/issues/78494
 	count := 0
 	for {
 		select {

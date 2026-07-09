@@ -154,7 +154,7 @@ func TestWatchdog_SendsWATCHDOG(t *testing.T) {
 	// notification due to scheduling or timer jitter.
 	//
 	// Note: We cannot use testing/synctest here because it does not support
-	// signals.Notify. See: https://github.com/golang/go/issues/78494
+	// signal.Notify. See: https://github.com/golang/go/issues/78494
 	count := 0
 	for {
 		select {

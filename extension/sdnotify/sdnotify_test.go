@@ -244,6 +244,8 @@ func startSystemdContainer(
 //   - systemctl stop -> the extension's SIGTERM handler emits STOPPING=1
 //     and the unit exits cleanly (Result=success)
 func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
@@ -320,6 +322,8 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 // failed. This is the negative branch of the sd_notify handshake: no READY=1
 // means systemd never considers the unit started.
 func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
@@ -350,6 +354,8 @@ func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
 // exporter starts asynchronously (queue + retry), so the collector reaches
 // steady state and sdnotify signals systemd regardless of downstream health.
 func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
@@ -378,6 +384,8 @@ func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 // collector must still start and stay running; the extension logs the no-op
 // warning and treats Ready() as a no-op.
 func TestSDNotify_NoNotifySocket_NoopBranch(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 

@@ -15,6 +15,7 @@ GCI_OPT                     ?= -s standard -s default -s "prefix(github.com/gard
 GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -fmt=sarif -out=gosec-report.sarif
 GOSEC_OPT                   ?= -exclude-generated -track-suppressions -no-fail -stdout
 TESTIFYLINT_OPT             ?= --enable-all --disable=float-compare,require-error,suite-subtest-run,encoded-compare
+GOTEST_PARALLEL_OPT         ?= -count=1 -parallel 16 -p 4 -json
 ADD_LICENSE_OPT             ?= -v -c "SAP SE or an SAP affiliate company and Gardener contributors" \
                                 -l apache -s=only \
                                 -y "$(shell date +"%Y")" \
@@ -57,7 +58,10 @@ gosec-report:
 .PHONY: test
 test: tidy go-lint check-license-headers
 	@echo "Running tests"
-	@go tool -modfile $(TOOLS_MOD_FILE) gotestsum --packages="./..."
+	@GOMAXPROCS=1 go tool -modfile $(TOOLS_MOD_FILE) gotestsum \
+		--format testname \
+		--packages="./..." \
+		-- $(GOTEST_PARALLEL_OPT)
 
 .PHONY: go-generate
 go-generate:

@@ -9,9 +9,11 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -182,6 +184,26 @@ func execAndCollect(ctx context.Context, t *testing.T, ctr testcontainers.Contai
 	return string(out)
 }
 
+var baseImageOnce sync.Once
+
+// buildBaseImageOnce builds the shared base image for integration tests.
+func buildBaseImageOnce(t *testing.T) {
+	t.Helper()
+
+	baseImageOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "docker", "build",
+			"-f", "testdata/Dockerfile.base",
+			"-t", "otelcol-sdnotify-base:latest",
+			"../..", // repo root: the Dockerfile COPYs extension/sdnotify/testdata/...
+		)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "building shared base image failed:\n%s", out)
+	})
+}
+
 // startSystemdContainer builds/reuses the test image described by the given
 // Dockerfile path and starts a fresh container running systemd as PID 1. The
 // wait strategy runs waitCmd until it exits 0 (or the startup timeout expires).
@@ -192,6 +214,8 @@ func startSystemdContainer(
 	waitCmd []string,
 ) testcontainers.Container {
 	t.Helper()
+
+	buildBaseImageOnce(t)
 
 	repo := "otelcol-sdnotify-test-" + strings.TrimPrefix(filepath.Ext(dockerfile), ".")
 	req := testcontainers.ContainerRequest{

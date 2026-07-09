@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -25,7 +24,6 @@ type sdnotify struct {
 	logger *zap.Logger
 	host   component.Host
 
-	isStarted  atomic.Bool
 	termCtx    context.Context
 	termCancel context.CancelFunc
 	sigCh      chan os.Signal
@@ -43,12 +41,11 @@ func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 	return &sdnotify{
 		cfg:    cfg,
 		logger: logger,
+		sigCh:  make(chan os.Signal, 1),
 	}
 }
 
 func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
-	s.isStarted.Store(true)
-
 	s.host = host
 
 	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
@@ -145,10 +142,8 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	if s.isStarted.Load() {
-		signal.Stop(s.sigCh)
-		s.termCancel()
-	}
+	signal.Stop(s.sigCh)
+	s.termCancel()
 
 	return nil
 }

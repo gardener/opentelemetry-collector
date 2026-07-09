@@ -26,7 +26,7 @@ unit it will:
   **in-process** reload.
 - When systemd has set `WATCHDOG_USEC` for the collector's PID, send
   `WATCHDOG=1` keep-alive notifications every `WATCHDOG_USEC / 2` as recommended
-  by [`sd_watchdog_enabled(3)`](https://www.man7.org/linux/man-pages/man3/sd_watchdog_enabled.3.html),
+  by [sd_watchdog_enabled(3)](https://www.man7.org/linux/man-pages/man3/sd_watchdog_enabled.3.html),
   for as long as the collector is running, so systemd can restart the process if it hangs.
 
 When `$NOTIFY_SOCKET` is not set the extension logs a warning and stays a no-op - it  will never fail collector startup.

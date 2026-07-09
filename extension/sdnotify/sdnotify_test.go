@@ -197,7 +197,7 @@ func buildBaseImageOnce(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "docker", "build",
 			"-f", "testdata/Dockerfile.base",
 			"-t", "otelcol-sdnotify-base:latest",
-			"../..", // repo root: the Dockerfile COPYs extension/sdnotify/testdata/...
+			"../..",
 		)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "building shared base image failed:\n%s", out)

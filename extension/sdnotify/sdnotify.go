@@ -6,6 +6,7 @@ package sdnotify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"

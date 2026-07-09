@@ -84,9 +84,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 			case <-s.termCtx.Done():
 				return
 
-			// otelcol.Collector.Run owns the SIGHUP-triggered reload logic.
-			// This extension should not restart the process because the
-			// collector handles reloads itself.
+			// This extension should not restart the process, because the collector handles it by itself.
 			case <-s.sigCh:
 				// Per sd_notify(3): MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds,
 				// formatted as a decimal string, in the same datagram as RELOADING=1.
@@ -142,6 +140,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
+	// This extension should not stop the process, because the collector handles it by itself.
 	signal.Stop(s.sigCh)
 	s.termCancel()
 

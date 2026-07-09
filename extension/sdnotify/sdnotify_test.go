@@ -31,7 +31,7 @@ type noopHost struct{}
 
 func (noopHost) GetExtensions() map[component.ID]component.Component { return nil }
 
-// startFakeNotifySocket opens a unix socket , points $NOTIFY_SOCKET at it, and
+// startFakeNotifySocket opens a unix socket, points $NOTIFY_SOCKET at it, and
 // returns a channel that receives every payload systemd would have seen.
 func startFakeNotifySocket(t *testing.T) <-chan string {
 	t.Helper()

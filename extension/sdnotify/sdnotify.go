@@ -61,7 +61,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 	go func() {
 		<-s.termCtx.Done()
 
-		// We don't want to send STOPPING=1 if we s.termCancel().
+		// We don't want to send STOPPING=1, if we s.termCancel().
 		if errors.Is(context.Cause(s.termCtx), context.Canceled) {
 			return
 		}

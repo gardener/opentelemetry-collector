@@ -24,11 +24,9 @@ type sdnotify struct {
 	cfg    *Config
 	logger *zap.Logger
 	host   component.Host
-	isNoop bool
 
 	sigCh        chan os.Signal
 	termCh       chan os.Signal
-	shutdownCh   chan struct{}
 	shutdownOnce sync.Once
 }
 
@@ -42,11 +40,10 @@ var _ Extension = (*sdnotify)(nil)
 
 func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 	return &sdnotify{
-		cfg:        cfg,
-		logger:     logger,
-		sigCh:      make(chan os.Signal, 1),
-		termCh:     make(chan os.Signal, 1),
-		shutdownCh: make(chan struct{}),
+		cfg:    cfg,
+		logger: logger,
+		sigCh:  make(chan os.Signal, 1),
+		termCh: make(chan os.Signal, 1),
 	}
 }
 
@@ -55,7 +52,6 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 
 	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
 	if os.Getenv("NOTIFY_SOCKET") == "" {
-		s.isNoop = true
 		s.logger.Warn("NOTIFY_SOCKET is not set; sd_notify support is disabled")
 		return nil
 	}
@@ -70,8 +66,12 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 	go func() {
 		for {
 			select {
-			case <-s.shutdownCh:
+			case <-s.termCh:
 				return
+
+			// otelcol.Collector.Run owns the SIGHUP-triggered reload logic.
+			// This extension should not restart the process because the
+			// collector handles reloads itself.
 			case <-s.sigCh:
 				// Per sd_notify(3): MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds,
 				// formatted as a decimal string, in the same datagram as RELOADING=1.
@@ -91,10 +91,6 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 						zap.Uint64("monotonic_usec", monotonicUSec),
 					)
 				}
-
-				// otelcol.Collector.Run owns the SIGHUP-triggered reload logic.
-				// This extension should not restart the process because the
-				// collector handles reloads itself.
 			}
 		}
 	}()
@@ -136,7 +132,7 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 			defer ticker.Stop()
 			for {
 				select {
-				case <-s.shutdownCh:
+				case <-s.termCh:
 					return
 				case <-ticker.C:
 					if _, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
@@ -151,15 +147,9 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	if s.isNoop {
-		return nil
-	}
 	s.shutdownOnce.Do(func() {
-		close(s.shutdownCh)
 		signal.Stop(s.sigCh)
-		close(s.sigCh)
 		signal.Stop(s.termCh)
-		close(s.termCh)
 	})
 	return nil
 }

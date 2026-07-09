@@ -89,7 +89,6 @@ After=network-online.target
 [Service]
 Type=notify-reload
 ExecStart=/usr/local/bin/otelcol --config=/etc/otelcol/config.yaml
-ReloadSignal=SIGHUP
 WatchdogSec=30s
 Restart=always
 RestartSec=2s

@@ -13,6 +13,9 @@
 //     configuration reload is in progress; a second READY=1 follows once the
 //     pipelines are back up. This enables zero-downtime reloads via
 //     Type=notify-reload units with ReloadSignal=SIGHUP.
+//   - WATCHDOG=1 is sent periodically (every WatchdogSec/2) when the unit sets
+//     WatchdogSec=, acting as a keep-alive so systemd can detect a hung
+//     collector and restart it. If WATCHDOG_USEC is unset, no pings are sent.
 //
 // If the NOTIFY_SOCKET environment variable is not set (i.e. the collector
 // is not running under systemd), the extension operates as a no-op and does

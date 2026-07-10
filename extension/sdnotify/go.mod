@@ -11,6 +11,7 @@ require (
 	go.opentelemetry.io/collector/confmap v1.62.0
 	go.opentelemetry.io/collector/extension v1.62.0
 	go.opentelemetry.io/collector/extension/extensioncapabilities v0.156.0
+	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.28.0
 )
 

@@ -6,10 +6,10 @@ package sdnotify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -24,12 +24,10 @@ type sdnotify struct {
 	cfg    *Config
 	logger *zap.Logger
 	host   component.Host
-	isNoop bool
 
-	sigCh        chan os.Signal
-	termCh       chan os.Signal
-	shutdownCh   chan struct{}
-	shutdownOnce sync.Once
+	ctx    context.Context
+	cancel context.CancelFunc
+	sigCh  chan os.Signal
 }
 
 // Extension is the union of capability interfaces sdnotify implements.
@@ -42,36 +40,55 @@ var _ Extension = (*sdnotify)(nil)
 
 func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 	return &sdnotify{
-		cfg:        cfg,
-		logger:     logger,
-		sigCh:      make(chan os.Signal, 1),
-		termCh:     make(chan os.Signal, 1),
-		shutdownCh: make(chan struct{}),
+		cfg:    cfg,
+		logger: logger,
+		sigCh:  make(chan os.Signal, 1),
 	}
 }
 
-func (s *sdnotify) Start(_ context.Context, host component.Host) error {
+func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 	s.host = host
 
 	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
 	if os.Getenv("NOTIFY_SOCKET") == "" {
-		s.isNoop = true
 		s.logger.Warn("NOTIFY_SOCKET is not set; sd_notify support is disabled")
+
 		return nil
 	}
 
-	// For services configured with Type=notify-reload, systemd signals the main
-	// process with SIGHUP when a reload is requested. The process is responsible
-	// for reloading its configuration and informing systemd when the reload has
-	// completed, allowing systemd to track the reload status correctly.
+	// STOPPING=1 must be sent only on genuine termination (SIGINT / SIGTERM).
+	s.ctx, s.cancel = signal.NotifyContext(startCtx, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-s.ctx.Done()
+
+		// We don't want to send STOPPING=1, if we s.termCancel().
+		if errors.Is(context.Cause(s.ctx), context.Canceled) {
+			return
+		}
+
+		sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
+		if err != nil {
+			s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
+
+			return
+		} else if sent {
+			s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
+		}
+	}()
+
+	// RELOADING=1\nMONOTONIC_USEC=X is send only for Type=notify-reload services.
+	// Systemd signals the main process with SIGHUP when a reload is requested.
+	// The process is responsible for reloading its configuration and informing
+	// systemd when the reload has completed.
 	monotonicEpoch := time.Now()
 	signal.Notify(s.sigCh, syscall.SIGHUP)
-
 	go func() {
 		for {
 			select {
-			case <-s.shutdownCh:
+			case <-s.ctx.Done():
 				return
+
+			// This extension should not restart the process, because the collector handles it by itself.
 			case <-s.sigCh:
 				// Per sd_notify(3): MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds,
 				// formatted as a decimal string, in the same datagram as RELOADING=1.
@@ -91,36 +108,12 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 						zap.Uint64("monotonic_usec", monotonicUSec),
 					)
 				}
-
-				// otelcol.Collector.Run owns the SIGHUP-triggered reload logic.
-				// This extension should not restart the process because the
-				// collector handles reloads itself.
 			}
 		}
 	}()
 
-	// STOPPING=1 must be sent only on real termination, never during a reload.
-	signal.Notify(s.termCh, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		select {
-		case <-s.shutdownCh:
-			return
-		case <-s.termCh:
-			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
-			if err != nil {
-				s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
-				return
-			} else if sent {
-				s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
-			}
-		}
-	}()
-
-	// Watchdog auto-enables whenever systemd has set WATCHDOG_USEC for our
-	// PID. SdWatchdogEnabled returns 0 when it didn't, or when WATCHDOG_PID
-	// points at a different process - both are valid "not enabled" states
-	// we treat as a no-op.
+	// WATCHDOG=1 is the keep-alive ping that services need to issue in regular
+	// intervals if WatchdogSec= is enabled for it.
 	duration, err := daemon.SdWatchdogEnabled(false)
 	switch {
 	case err != nil:
@@ -132,12 +125,11 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 		go func() {
 			// Per sd_watchdog_enabled(3): It is recommended that a daemon sends a keep-alive
 			// notification message to the service manager every half of the time returned here.
-			tickInterval := duration / 2
-			ticker := time.NewTicker(tickInterval)
+			ticker := time.NewTicker(duration / 2)
 			defer ticker.Stop()
 			for {
 				select {
-				case <-s.shutdownCh:
+				case <-s.ctx.Done():
 					return
 				case <-ticker.C:
 					if _, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
@@ -152,18 +144,17 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	if s.isNoop {
-		return nil
-	}
-	s.shutdownOnce.Do(func() {
-		close(s.shutdownCh)
+	if s.cancel != nil {
+		// This extension should not stop the process, because the collector handles it by itself.
 		signal.Stop(s.sigCh)
-		signal.Stop(s.termCh)
-	})
+		s.cancel()
+	}
+
 	return nil
 }
 
 func (s *sdnotify) Ready() error {
+	// READY=1 informs systemd that the collector is fully ready to receive traffic.
 	sent, err := daemon.SdNotify(false, daemon.SdNotifyReady)
 	switch {
 	case err != nil:
@@ -173,6 +164,7 @@ func (s *sdnotify) Ready() error {
 	default:
 		s.logger.Info("sdnotify: NOTIFY_SOCKET not set; READY=1 was a no-op")
 	}
+
 	return nil
 }
 

@@ -9,9 +9,11 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -31,7 +33,7 @@ type noopHost struct{}
 
 func (noopHost) GetExtensions() map[component.ID]component.Component { return nil }
 
-// startFakeNotifySocket opens a unix socket , points $NOTIFY_SOCKET at it, and
+// startFakeNotifySocket opens a unix socket, points $NOTIFY_SOCKET at it, and
 // returns a channel that receives every payload systemd would have seen.
 func startFakeNotifySocket(t *testing.T) <-chan string {
 	t.Helper()
@@ -61,12 +63,23 @@ func startFakeNotifySocket(t *testing.T) <-chan string {
 
 func TestStart_NoNotifySocket_IsNoop(t *testing.T) {
 	t.Setenv("NOTIFY_SOCKET", "")
+	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
+	require.NoError(t, s.Start(context.Background(), noopHost{}))
+	require.NoError(t, s.Shutdown(context.Background()))
+}
+
+func TestShutdown_BeforeStart_IsNoop(t *testing.T) {
+	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
+	require.NoError(t, s.Shutdown(context.Background()))
+}
+
+func TestShutdown_IsIdempotent(t *testing.T) {
+	_ = startFakeNotifySocket(t)
 
 	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
 	require.NoError(t, s.Start(context.Background(), noopHost{}))
-	require.True(t, s.isNoop, "expected extension to run as no-op without NOTIFY_SOCKET")
 
-	// Shutdown must be safe even though we never registered a signal handler.
+	require.NoError(t, s.Shutdown(context.Background()))
 	require.NoError(t, s.Shutdown(context.Background()))
 }
 
@@ -119,17 +132,6 @@ func TestSIGHUP_SendsRELOADING(t *testing.T) {
 	}
 }
 
-func TestShutdown_IsIdempotent(t *testing.T) {
-	_ = startFakeNotifySocket(t)
-
-	s := newSDNotify(&Config{}, zaptest.NewLogger(t))
-	require.NoError(t, s.Start(context.Background(), noopHost{}))
-
-	require.NoError(t, s.Shutdown(context.Background()))
-	// Second call must not panic on close(closed channel).
-	require.NoError(t, s.Shutdown(context.Background()))
-}
-
 func TestWatchdog_SendsWATCHDOG(t *testing.T) {
 	msgs := startFakeNotifySocket(t)
 
@@ -143,6 +145,16 @@ func TestWatchdog_SendsWATCHDOG(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 325*time.Millisecond)
 	defer cancel()
 
+	// We expect to receive 6 notifications because:
+	//   - WATCHDOG_USEC is set to 100ms, so a notification is sent every 50ms.
+	//   - Over a 300ms interval, this results in 300 / 50 = 6 notifications.
+	//
+	// We wait 325ms instead of exactly 300ms to avoid timing-related flakiness.
+	// Waiting exactly 300ms could cause the test to occasionally miss the last
+	// notification due to scheduling or timer jitter.
+	//
+	// Note: We cannot use testing/synctest here because it does not support
+	// signal.Notify. See: https://github.com/golang/go/issues/78494
 	count := 0
 	for {
 		select {
@@ -172,6 +184,26 @@ func execAndCollect(ctx context.Context, t *testing.T, ctr testcontainers.Contai
 	return string(out)
 }
 
+var baseImageOnce sync.Once
+
+// buildBaseImageOnce builds the shared base image for integration tests.
+func buildBaseImageOnce(t *testing.T) {
+	t.Helper()
+
+	baseImageOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "docker", "build",
+			"-f", "testdata/Dockerfile.base",
+			"-t", "otelcol-sdnotify-base:latest",
+			"../..",
+		)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "building shared base image failed:\n%s", out)
+	})
+}
+
 // startSystemdContainer builds/reuses the test image described by the given
 // Dockerfile path and starts a fresh container running systemd as PID 1. The
 // wait strategy runs waitCmd until it exits 0 (or the startup timeout expires).
@@ -182,6 +214,8 @@ func startSystemdContainer(
 	waitCmd []string,
 ) testcontainers.Container {
 	t.Helper()
+
+	buildBaseImageOnce(t)
 
 	repo := "otelcol-sdnotify-test-" + strings.TrimPrefix(filepath.Ext(dockerfile), ".")
 	req := testcontainers.ContainerRequest{
@@ -234,6 +268,8 @@ func startSystemdContainer(
 //   - systemctl stop -> the extension's SIGTERM handler emits STOPPING=1
 //     and the unit exits cleanly (Result=success)
 func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
@@ -310,6 +346,8 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 // failed. This is the negative branch of the sd_notify handshake: no READY=1
 // means systemd never considers the unit started.
 func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
@@ -340,6 +378,8 @@ func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
 // exporter starts asynchronously (queue + retry), so the collector reaches
 // steady state and sdnotify signals systemd regardless of downstream health.
 func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 
@@ -368,6 +408,8 @@ func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 // collector must still start and stay running; the extension logs the no-op
 // warning and treats Ready() as a no-op.
 func TestSDNotify_NoNotifySocket_NoopBranch(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 

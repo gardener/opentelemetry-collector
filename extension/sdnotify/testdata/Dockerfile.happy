@@ -1,20 +1,4 @@
-FROM otel/opentelemetry-collector-builder:0.155.0 AS build-stage
-
-USER root
-WORKDIR /src
-COPY . /src
-
-RUN mkdir -p /build/_out \
- && ocb --config=/src/extension/sdnotify/testdata/manifest.yaml \
- && test -x /build/_out/otelcol
-
-FROM debian:13 AS run-stage
-
-RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        systemd systemd-sysv procps ca-certificates
-
-COPY --from=build-stage /build/_out/otelcol /bin/otelcol
+FROM otelcol-sdnotify-base:latest
 
 # Healthy collector config: valid pipeline with a debug exporter. The
 # sdnotify extension is enabled so systemd receives READY=1 once the
@@ -25,16 +9,3 @@ COPY extension/sdnotify/testdata/otelcol-config.yaml /etc/otelcol/config.yaml
 # sdnotify extension before marking the unit active.
 COPY extension/sdnotify/testdata/otelcol.service /etc/systemd/system/otelcol.service
 RUN ln -s /etc/systemd/system/otelcol.service /etc/systemd/system/multi-user.target.wants/otelcol.service
-
-# To allow systemd (and other programs) to identify that it is executed within
-# a container, please set the $container environment variable for PID 1 in the
-# container to a short lowercase string identifying your implementation.
-# https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#environment-variables
-ENV container=docker
-
-# If the container manager wants to cleanly shut down the container, it might be
-# a good idea to send SIGRTMIN+3 to its init process. systemd will then do a clean shutdown.
-# https://github.com/systemd/systemd/blob/main/docs/CONTAINER_INTERFACE.md#advanced-integration
-STOPSIGNAL SIGRTMIN+3
-
-CMD ["/lib/systemd/systemd"]

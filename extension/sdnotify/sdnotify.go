@@ -25,9 +25,9 @@ type sdnotify struct {
 	logger *zap.Logger
 	host   component.Host
 
-	termCtx    context.Context
-	termCancel context.CancelFunc
-	sigCh      chan os.Signal
+	ctx    context.Context
+	cancel context.CancelFunc
+	sigCh  chan os.Signal
 }
 
 // Extension is the union of capability interfaces sdnotify implements.
@@ -46,7 +46,7 @@ func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 	}
 }
 
-func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
+func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 	s.host = host
 
 	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
@@ -57,12 +57,12 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 	}
 
 	// STOPPING=1 must be sent only on genuine termination (SIGINT / SIGTERM).
-	s.termCtx, s.termCancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	s.ctx, s.cancel = signal.NotifyContext(startCtx, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-s.termCtx.Done()
+		<-s.ctx.Done()
 
 		// We don't want to send STOPPING=1, if we s.termCancel().
-		if errors.Is(context.Cause(s.termCtx), context.Canceled) {
+		if errors.Is(context.Cause(s.ctx), context.Canceled) {
 			return
 		}
 
@@ -85,7 +85,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 	go func() {
 		for {
 			select {
-			case <-s.termCtx.Done():
+			case <-s.ctx.Done():
 				return
 
 			// This extension should not restart the process, because the collector handles it by itself.
@@ -129,7 +129,7 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 			defer ticker.Stop()
 			for {
 				select {
-				case <-s.termCtx.Done():
+				case <-s.ctx.Done():
 					return
 				case <-ticker.C:
 					if _, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
@@ -144,10 +144,10 @@ func (s *sdnotify) Start(ctx context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	if s.termCancel != nil {
+	if s.cancel != nil {
 		// This extension should not stop the process, because the collector handles it by itself.
 		signal.Stop(s.sigCh)
-		s.termCancel()
+		s.cancel()
 	}
 
 	return nil

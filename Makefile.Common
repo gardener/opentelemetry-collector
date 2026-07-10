@@ -16,6 +16,7 @@ GOSEC_REPORT_OPT            ?= -exclude-generated -track-suppressions -stdout -f
 GOSEC_OPT                   ?= -exclude-generated -track-suppressions -no-fail -stdout
 TESTIFYLINT_OPT             ?= --enable-all --disable=float-compare,require-error,suite-subtest-run,encoded-compare
 GOTEST_PARALLEL_OPT         ?= -parallel 16 -p 4
+GOTEST_SHUFFLE_OPT          ?= -shuffle=on
 ADD_LICENSE_OPT             ?= -v -c "SAP SE or an SAP affiliate company and Gardener contributors" \
                                 -l apache -s=only \
                                 -y "$(shell date +"%Y")" \
@@ -61,7 +62,7 @@ test: tidy go-lint check-license-headers
 	@GOMAXPROCS=1 go tool -modfile $(TOOLS_MOD_FILE) gotestsum \
 		--format testname \
 		--packages="./..." \
-		-- $(GOTEST_PARALLEL_OPT)
+		-- $(GOTEST_PARALLEL_OPT) $(GOTEST_SHUFFLE_OPT)
 
 .PHONY: go-generate
 go-generate:

@@ -3,8 +3,8 @@ module github.com/gardener/opentelemetry-collector/receiver/gardenerreceiver
 go 1.26.0
 
 require (
-	github.com/gardener/gardener v1.146.2
-	github.com/gardener/gardener/pkg/apis v1.146.2
+	github.com/gardener/gardener v1.146.3
+	github.com/gardener/gardener/pkg/apis v1.146.3
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v1.62.0
 	go.opentelemetry.io/collector/component/componenttest v0.156.0

@@ -181,26 +181,88 @@ spec:
 
 ### 3. Deploy the Prometheus Operator
 
-Install the Prometheus Operator from its Helm chart. The
-`prometheus-operator` chart deploys the operator and its CRDs:
+Install the Prometheus Operator from the `kube-prometheus-stack` Helm chart.
+The chart bundles a full monitoring stack, all uncessesary components are disabled
+here:
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-helm install prometheus-operator prometheus-community/prometheus-operator \
-  --namespace monitoring --create-namespace
+helm install prometheus-operator prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace \
+  --set prometheus.enabled=false \
+  --set alertmanager.enabled=false \
+  --set grafana.enabled=false \
+  --set defaultRules.enabled=false \
+  --set kubeApiServer.enabled=false \
+  --set kubeControllerManager.enabled=false \
+  --set kubeScheduler.enabled=false \
+  --set kubeProxy.enabled=false \
+  --set kubeEtcd.enabled=false \
+  --set kubeStateMetrics.enabled=false \
+  --set nodeExporter.enabled=false \
+  --set kubelet.enabled=false \
+  --set coreDns.enabled=false \
+  --set kubeDns.enabled=false
 ```
 
 ### 4. Create a Prometheus instance and ServiceMonitor
 
-Deploy a `Prometheus` instance and a `ServiceMonitor` that scrapes the
-collector's `prometheus` port. The `Prometheus` resource selects the
-`ServiceMonitor` via `serviceMonitorSelector`, and the `ServiceMonitor` selects
-the collector `Service` created by the operator via its
-`app.kubernetes.io/name: gardener-collector` label.
+Deploy a `Prometheus` instance with the required RBAC and a `ServiceMonitor`
+that scrapes the collector's `prometheus` port. The `Prometheus` instance runs
+under a dedicated service account.
 
 ```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: gardener-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs: ["get", "list", "watch"]
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: gardener-monitoring
+---
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -224,12 +286,10 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: gardener-collector
+      operator.opentelemetry.io/collector-service-type: base
   endpoints:
     - port: prometheus
       interval: 30s
 ```
 
-The `Prometheus` resource requires a service account with permission to scrape
-targets; create it together with the appropriate RBAC as described in the
-[Prometheus Operator documentation](https://prometheus-operator.dev/docs/getting-started/design/#prometheus).
 Once reconciled, the Gardener metrics are available in the Prometheus instance.

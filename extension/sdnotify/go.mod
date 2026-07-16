@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/coreos/go-systemd/v22 v22.7.0
-	github.com/moby/moby/api v1.54.2
+	github.com/moby/moby/api v1.55.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	go.opentelemetry.io/collector/component v1.62.0

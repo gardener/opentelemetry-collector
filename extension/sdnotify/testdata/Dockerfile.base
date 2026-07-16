@@ -1,5 +1,5 @@
 # Shared base image for the sdnotify integration tests.
-# FROM otel/opentelemetry-collector-builder:0.155.0 AS build-stage
+# FROM otel/opentelemetry-collector-builder:0.156.0 AS build-stage
 FROM golang:1.26.5 AS build-stage
 
 ARG OCB_VERSION=v0.156.0

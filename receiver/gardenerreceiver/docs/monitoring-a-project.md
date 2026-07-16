@@ -5,9 +5,6 @@ Gardener receiver to monitor the resources of a single Gardener project. The
 examples below describe the deployment of an OpenTelemetry Collector to a Kubernetes
 cluster.
 
-> **TODO** — End-user deployment instructions (Helm chart / manifest /
-> kubeconfig wiring) will be added here.
-
 ## Required Permissions
 
 The receiver only reads from the API server. When only the resources of a
@@ -139,6 +136,8 @@ Apply an `OpenTelemetryCollector` resource with a `prometheus` exporter instead
 of the `otlp` exporter. The exporter listens on port `8889`; the `ports` entry
 tells the operator to expose that port on the generated `gardener-collector`
 `Service` under the name `prometheus`, which the `ServiceMonitor` targets below.
+As in the OTLP example, `resources` is restricted to `shoots` so the receiver
+only starts project-namespaced shoot and binding watches.
 
 ```yaml
 apiVersion: opentelemetry.io/v1beta1
@@ -182,7 +181,7 @@ spec:
 ### 3. Deploy the Prometheus Operator
 
 Install the Prometheus Operator from the `kube-prometheus-stack` Helm chart.
-The chart bundles a full monitoring stack, all uncessesary components are disabled
+The chart bundles a full monitoring stack, all unnecessary components are disabled
 here:
 
 ```bash

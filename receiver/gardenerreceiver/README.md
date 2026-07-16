@@ -89,7 +89,7 @@ not exposed as an attribute.
 | Shoots         | `garden.shoot.node.info`                  | Per-worker-pool node metadata (machine type, image, architecture, CRI, container runtimes, …).                                |
 | Seeds          | `garden.seed.info`                        | Static seed metadata.                                                                                                         |
 | Seeds          | `garden.seed.capacity`                    | Capacity reported by the seed (e.g. shoots).                                                                                  |
-| Seeds          | `garden.seed.usage`                       | Allocatable/used resources reported by the seed.                                                                              |
+| Seeds          | `garden.seed.usage`                       | Allocatable resources reported by the seed.                                                                                   |
 | Seeds          | `garden.seed.condition`                   | One data point per seed condition with value `1`; condition type/status/reason are attributes.                                |
 | Seeds          | `garden.seed.operation`                   | Current operation type/state of the seed (with `gardener.operation.progress`).                                                |
 | Projects       | `garden.project.info`                     | Static project metadata.                                                                                                      |

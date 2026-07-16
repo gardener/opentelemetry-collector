@@ -61,7 +61,7 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 		<-s.ctx.Done()
 
 		// We don't want to send STOPPING=1, if we s.cancel().
-		errStr := string(context.Cause(s.ctx).Error())
+		errStr := context.Cause(s.ctx).Error()
 		if errStr == syscall.SIGINT.String()+" signal received" || errStr == syscall.SIGTERM.String()+" signal received" {
 			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
 			if err != nil {

@@ -23,13 +23,7 @@ To monitor a whole landscape, a minimal collector configuration is sufficient.
 The pipeline pairs a single `gardener` receiver with an `otlp` exporter that
 forwards the metrics to a downstream collector or backend.
 
-None of the receiver's options are strictly required — with an empty config it
-watches every supported resource cluster-wide and authenticates via the
-in-cluster service-account. The one setting that usually matters is
-`kubeconfig`, which points the receiver at the virtual garden API server. It is
-only optional when the collector runs inside the garden cluster with a suitable
-service-account mounted; otherwise (falling back to `$KUBECONFIG`/
-`~/.kube/config`) it should be set explicitly:
+The receiver needs a `kubeconfig`, which points to the virtual garden API server.
 
 ```yaml
 receivers:

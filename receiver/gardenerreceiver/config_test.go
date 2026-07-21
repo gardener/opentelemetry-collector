@@ -90,14 +90,32 @@ func TestConfigValidation_InvalidNamespace(t *testing.T) {
 func TestConfigValidation_KubeconfigExists(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "kubeconfig")
-	require.NoError(t, os.WriteFile(path, []byte("apiVersion: v1"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte(`apiVersion: v1
+kind: Config
+clusters: []
+contexts: []
+users: []
+`), 0o600))
 
 	cfg := &Config{
 		CollectionInterval: 30 * time.Second,
 		Kubeconfig:         path,
 	}
 	err := cfg.Validate()
-	require.NoError(t, err, "Validate() should succeed when kubeconfig points to an existing file")
+	require.NoError(t, err, "Validate() should succeed when kubeconfig points to a valid kubeconfig file")
+}
+
+func TestConfigValidation_KubeconfigMalformed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kubeconfig")
+	require.NoError(t, os.WriteFile(path, []byte("apiVersion: ["), 0o600))
+
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Kubeconfig:         path,
+	}
+	err := cfg.Validate()
+	require.Error(t, err, "Validate() should fail when kubeconfig is malformed")
 }
 
 func TestConfigValidation_KubeconfigMissing(t *testing.T) {

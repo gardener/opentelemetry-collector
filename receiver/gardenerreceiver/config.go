@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Config struct {
@@ -59,6 +60,9 @@ func validateKubeconfig(kubeconfig string) error {
 	}
 	if info.IsDir() {
 		return fmt.Errorf("kubeconfig %q must be a file, not a directory", kubeconfig)
+	}
+	if _, err := clientcmd.LoadFromFile(kubeconfig); err != nil {
+		return fmt.Errorf("kubeconfig %q is not valid: %w", kubeconfig, err)
 	}
 	return nil
 }

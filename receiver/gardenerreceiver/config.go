@@ -6,8 +6,12 @@ package gardenerreceiver
 
 import (
 	"fmt"
+	"os"
 	"slices"
+	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type Config struct {
@@ -26,7 +30,37 @@ func (cfg *Config) Validate() error {
 	if cfg.CollectionInterval <= 0 {
 		return fmt.Errorf("collection_interval must be positive")
 	}
+	if err := validateNamespace(cfg.Namespace); err != nil {
+		return err
+	}
+	if err := validateKubeconfig(cfg.Kubeconfig); err != nil {
+		return err
+	}
 	return validateResources(cfg.Resources)
+}
+
+func validateNamespace(namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+	if errs := validation.IsDNS1123Label(namespace); len(errs) > 0 {
+		return fmt.Errorf("invalid namespace %q: %s", namespace, strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+func validateKubeconfig(kubeconfig string) error {
+	if kubeconfig == "" {
+		return nil
+	}
+	info, err := os.Stat(kubeconfig)
+	if err != nil {
+		return fmt.Errorf("kubeconfig %q is not accessible: %w", kubeconfig, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("kubeconfig %q must be a file, not a directory", kubeconfig)
+	}
+	return nil
 }
 
 var validResources = []string{"shoots", "seeds", "projects", "managedseeds", "gardenlets"}

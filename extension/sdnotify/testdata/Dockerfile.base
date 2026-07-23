@@ -1,13 +1,11 @@
 # Shared base image for the sdnotify integration tests.
-FROM otel/opentelemetry-collector-builder:0.156.0 AS build-stage
+FROM golang:1.26.5 AS build-stage
 
 USER root
 WORKDIR /src
 COPY . /src
 
-RUN mkdir -p /build/_out \
- && ocb --config=/src/extension/sdnotify/testdata/manifest.yaml \
- && test -x /build/_out/otelcol
+RUN make build -C /src
 
 # Minimal systemd runtime shared by every scenario. Scenario Dockerfiles add
 # their own config.yaml and otelcol.service on top of this.
@@ -17,7 +15,7 @@ RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         systemd systemd-sysv procps ca-certificates
 
-COPY --from=build-stage /build/_out/otelcol /bin/otelcol
+COPY --from=build-stage /src/bin/otelcol /bin/otelcol
 
 # To allow systemd (and other programs) to identify that it is executed within
 # a container, please set the $container environment variable for PID 1 in the

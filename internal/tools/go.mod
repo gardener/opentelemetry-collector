@@ -119,6 +119,7 @@ require (
 	github.com/golangci/unconvert v0.0.0-20250410112200-a129a6e6413e // indirect
 	github.com/google/addlicense v1.2.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -136,6 +137,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
+	github.com/iimos/ucum v0.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jgautheron/goconst v1.10.0 // indirect
@@ -252,15 +254,15 @@ require (
 	go.augendre.info/arangolint v0.4.0 // indirect
 	go.augendre.info/fatcontext v0.9.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/collector/cmd/builder v0.156.0 // indirect
-	go.opentelemetry.io/collector/cmd/mdatagen v0.156.0 // indirect
-	go.opentelemetry.io/collector/component v1.62.0 // indirect
-	go.opentelemetry.io/collector/confmap v1.62.0 // indirect
-	go.opentelemetry.io/collector/confmap/provider/fileprovider v1.62.0 // indirect
-	go.opentelemetry.io/collector/featuregate v1.62.0 // indirect
-	go.opentelemetry.io/collector/filter v0.156.0 // indirect
-	go.opentelemetry.io/collector/internal/schemagen v0.156.0 // indirect
-	go.opentelemetry.io/collector/pdata v1.62.0 // indirect
+	go.opentelemetry.io/collector/cmd/builder v0.157.0 // indirect
+	go.opentelemetry.io/collector/cmd/mdatagen v0.157.0 // indirect
+	go.opentelemetry.io/collector/component v1.63.0 // indirect
+	go.opentelemetry.io/collector/confmap v1.63.0 // indirect
+	go.opentelemetry.io/collector/confmap/provider/fileprovider v1.63.0 // indirect
+	go.opentelemetry.io/collector/featuregate v1.63.0 // indirect
+	go.opentelemetry.io/collector/filter v0.157.0 // indirect
+	go.opentelemetry.io/collector/internal/schemagen v0.157.0 // indirect
+	go.opentelemetry.io/collector/pdata v1.63.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect

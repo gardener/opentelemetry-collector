@@ -5,7 +5,7 @@ Gardener receiver to monitor an entire Gardener landscape.
 
 ## Required Permissions
 
-The receiver only reads from the API server. The service-account used by the
+The receiver only reads from the API server. The `ServiceAccount` used by the
 collector must be allowed to `get`, `list`, and `watch` the resources selected
 via `resources`, plus the `SecretBinding` and `CredentialsBinding` resources
 when `shoots` are enabled (these are needed to resolve billing-relevant

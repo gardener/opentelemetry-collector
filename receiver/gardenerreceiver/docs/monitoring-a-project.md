@@ -10,12 +10,12 @@ cluster.
 The receiver only reads from the API server. When only the resources of a
 specific project should be monitored, the Gardener
 [`viewer` role](https://gardener.cloud/docs/gardener/project/projects/) grants
-the collector's service-account read access to the project's resources.
+the collector's `ServiceAccount` read access to the project's resources.
 
 ## Prerequisites
 
 * A Kubernetes cluster to deploy the OpenTelemetry Collector to.
-* A service account for a Gardener project with the `viewer` role.
+* A `ServiceAccount` for a Gardener project with the `viewer` role.
 * Installed Helm CLI
 
 ## Monitoring a Gardener Project with an OTLP Backend
@@ -210,7 +210,7 @@ helm install prometheus-operator prometheus-community/kube-prometheus-stack \
 
 Deploy a `Prometheus` instance with the required RBAC and a `ServiceMonitor`
 that scrapes the collector's `prometheus` port. The `Prometheus` instance runs
-under a dedicated service account.
+under a dedicated `ServiceAccount`.
 
 ```yaml
 apiVersion: v1

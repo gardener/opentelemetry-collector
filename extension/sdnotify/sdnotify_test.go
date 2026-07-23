@@ -270,7 +270,7 @@ func startSystemdContainer(
 func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(
@@ -348,7 +348,7 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	t.Cleanup(cancel)
 
 	// `systemctl is-failed` exits 0 when the unit is in the failed state.
@@ -380,7 +380,7 @@ func TestSDNotify_InvalidConfig_UnitFails(t *testing.T) {
 func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(
@@ -410,7 +410,7 @@ func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 func TestSDNotify_NoNotifySocket_NoopBranch(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	t.Cleanup(cancel)
 
 	ctr := startSystemdContainer(

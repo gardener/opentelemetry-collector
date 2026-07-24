@@ -33,10 +33,10 @@ not available.
 | Option                | Type            | Default                                               | Description                                                                                                                                                      |
 |-----------------------|-----------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kubeconfig`          | string          | _empty_                                               | Path to a kubeconfig pointing at the Gardener (virtual garden) API server. If empty, uses in-cluster config first, then falls back to `$KUBECONFIG`/`~/.kube/config`. |
-| `namespace`           | string          | _empty_ (all namespaces)                              | Restrict `Shoot` watches to this namespace.                                                                                                                      |
-| `sync_period`         | duration        | `1h`                                                  | Resync period passed to the underlying shared informer factories.                                                                                                |
-| `collection_interval` | duration        | `30s`                                                 | How often the receiver translates the informer caches into metrics. Must be `> 0`.                                                                               |
-| `resources`           | list of strings | `[shoots, seeds, projects, managedseeds, gardenlets]` | Resources to watch and emit metrics for. Allowed values: `shoots`, `seeds`, `projects`, `managedseeds`, `gardenlets`.                                            |
+| `namespace`           | string          | _empty_ (all namespaces)                              | Restrict monitoring namespace scoped resources to this namespace.                                                                                                     |
+| `sync_period`         | duration        | `1h`                                                  | Resync period passed to the underlying shared informer factories.                                                                                                     |
+| `collection_interval` | duration        | `30s`                                                 | How often the receiver translates the informer caches into metrics. Must be `> 0`.                                                                                    |
+| `resources`           | list of strings | `[shoots, seeds, projects, managedseeds, gardenlets]` | Resources to watch and emit metrics for. Allowed values: `shoots`, `seeds`, `projects`, `managedseeds`, `gardenlets`.                                                 |
 
 ### Example
 
@@ -77,8 +77,8 @@ unique identifier for a shoot is `gardener.shoot.uid`.
 | Shoots         | `garden.shoot.info`                       | Static metadata as attributes (provider, region, k8s version, purpose, failure tolerance, billing/cost-object attributes, …). |
 | Shoots         | `garden.shoot.hibernated`                 | `1` if the shoot is hibernated, `0` otherwise.                                                                                |
 | Shoots         | `garden.shoot.creation_timestamp`         | Unix timestamp of `metadata.creationTimestamp`.                                                                               |
-| Shoots         | `garden.shoot.condition`                  | One data point per condition with value `1`; condition type/status/reason are attributes.                                     |
-| Shoots         | `garden.shoot.status`                     | StateSet over `healthy` / `progressing` / `unhealthy` / `unknown`: one data point per status with `1` for the current status and `0` for the others; the status is a `gardener.shoot.status` attribute. |
+| Shoots         | `garden.shoot.condition`                  | State metric over condition type: one data point per condition with value `1`; condition type/status/reason are attributes.   |
+| Shoots         | `garden.shoot.status`                     | State metric over Shoot status: one data point per status with `1` for the current status and `0` for the others.             |
 | Shoots         | `garden.shoot.operation_states`           | One data point per supported operation type; current operation is `1`, all other operation types are `0`.                     |
 | Shoots         | `garden.shoot.operation_progress_percent` | Progress of the current operation in percent; non-current operation types are emitted with `0`.                               |
 | Shoots         | `garden.shoot.operations_total`           | Current last-operation counts grouped by operation type/state, provider, seed, Kubernetes version, and region.                |

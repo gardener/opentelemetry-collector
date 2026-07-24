@@ -5,6 +5,8 @@
 package gardenerreceiver
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -54,6 +56,84 @@ func TestConfigValidation_EmptyResource(t *testing.T) {
 	}
 	err := cfg.Validate()
 	require.NoError(t, err, "Validate() should succeed for empty resources")
+}
+
+func TestConfigValidation_ValidNamespace(t *testing.T) {
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Namespace:          "garden-my-project",
+	}
+	err := cfg.Validate()
+	require.NoError(t, err, "Validate() should succeed for a valid namespace")
+}
+
+func TestConfigValidation_EmptyNamespace(t *testing.T) {
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Namespace:          "",
+	}
+	err := cfg.Validate()
+	require.NoError(t, err, "Validate() should succeed for an empty namespace")
+}
+
+func TestConfigValidation_InvalidNamespace(t *testing.T) {
+	for _, ns := range []string{"Invalid_Namespace", "-leading-dash", "trailing-dash-", "has.dot", "UPPER"} {
+		cfg := &Config{
+			CollectionInterval: 30 * time.Second,
+			Namespace:          ns,
+		}
+		err := cfg.Validate()
+		require.Error(t, err, "Validate() should fail for invalid namespace %q", ns)
+	}
+}
+
+func TestConfigValidation_KubeconfigExists(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kubeconfig")
+	require.NoError(t, os.WriteFile(path, []byte(`apiVersion: v1
+kind: Config
+clusters: []
+contexts: []
+users: []
+`), 0o600))
+
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Kubeconfig:         path,
+	}
+	err := cfg.Validate()
+	require.NoError(t, err, "Validate() should succeed when kubeconfig points to a valid kubeconfig file")
+}
+
+func TestConfigValidation_KubeconfigMalformed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kubeconfig")
+	require.NoError(t, os.WriteFile(path, []byte("apiVersion: ["), 0o600))
+
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Kubeconfig:         path,
+	}
+	err := cfg.Validate()
+	require.Error(t, err, "Validate() should fail when kubeconfig is malformed")
+}
+
+func TestConfigValidation_KubeconfigMissing(t *testing.T) {
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Kubeconfig:         filepath.Join(t.TempDir(), "does-not-exist"),
+	}
+	err := cfg.Validate()
+	require.Error(t, err, "Validate() should fail when kubeconfig does not exist")
+}
+
+func TestConfigValidation_KubeconfigIsDirectory(t *testing.T) {
+	cfg := &Config{
+		CollectionInterval: 30 * time.Second,
+		Kubeconfig:         t.TempDir(),
+	}
+	err := cfg.Validate()
+	require.Error(t, err, "Validate() should fail when kubeconfig points to a directory")
 }
 
 func TestHasShootResource(t *testing.T) {

@@ -30,8 +30,8 @@ resource cluster-wide using the in-cluster `ServiceAccount`, or the kubeconfig
 referenced by `$KUBECONFIG`/`~/.kube/config` when in-cluster configuration is
 not available.
 
-| Option                | Type            | Default                                               | Description                                                                                                                                                      |
-|-----------------------|-----------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Option                | Type            | Default                                               | Description                                                                                                                                                           |
+|-----------------------|-----------------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kubeconfig`          | string          | _empty_                                               | Path to a kubeconfig pointing at the Gardener (virtual garden) API server. If empty, uses in-cluster config first, then falls back to `$KUBECONFIG`/`~/.kube/config`. |
 | `namespace`           | string          | _empty_ (all namespaces)                              | Restrict monitoring namespace scoped resources to this namespace.                                                                                                     |
 | `sync_period`         | duration        | `1h`                                                  | Resync period passed to the underlying shared informer factories.                                                                                                     |
@@ -103,30 +103,30 @@ In addition to per-shoot metrics, the receiver emits a set of landscape-wide
 counters that summarize how shoots across the garden are configured. These are
 useful for tracking adoption of features and operational settings.
 
-| Metric name                                                | Description                                                                        |
-|------------------------------------------------------------|------------------------------------------------------------------------------------|
-| `garden.shoots.hibernation.enabled_total`                  | Count of shoots with hibernation enabled.                                          |
-| `garden.shoots.hibernation.schedule_total`                 | Count of shoots with a hibernation schedule configured.                            |
-| `garden.shoots.maintenance.window_total`                   | Count of shoots with a maintenance window configured.                              |
-| `garden.shoots.maintenance.autoupdate.k8s_version_total`   | Count of shoots with auto-update for Kubernetes versions configured.               |
-| `garden.shoots.maintenance.autoupdate.image_version_total` | Count of shoots with auto-update for machine image versions configured.            |
-| `garden.shoots.custom.worker.multiple_pools_total`         | Count of shoots with multiple worker pools.                                        |
-| `garden.shoots.custom.worker.multi_zones_total`            | Count of shoots with multi-zone worker pools.                                      |
-| `garden.shoots.custom.worker.taints_total`                 | Count of shoots with worker-pool taints.                                           |
-| `garden.shoots.custom.worker.labels_total`                 | Count of shoots with worker-pool labels.                                           |
-| `garden.shoots.custom.worker.annotations_total`            | Count of shoots with worker-pool annotations.                                      |
-| `garden.shoots.custom.network.custom_domain_total`         | Count of shoots which use a custom DNS domain.                                     |
-| `garden.shoots.custom.apiserver.audit_policy_total`        | Count of shoots with an audit log policy configured on the kube-apiserver.         |
-| `garden.shoots.custom.apiserver.structured_authentication_total` | Count of shoots with structured authentication configured on the kube-apiserver. |
-| `garden.shoots.custom.kcm.node_cidr_mask_size_total`       | Count of shoots with a node CIDR mask size configured on the KCM.                  |
-| `garden.shoots.custom.kcm.horizontal_pod_autoscale_total`  | Count of shoots with HPA configuration on the KCM.                                 |
-| `garden.shoots.custom.kubelet.pod_pid_limit_total`         | Count of shoots with a pod PID limit configured on the kubelet(s).                 |
-| `garden.shoots.custom.extensions_total`                    | Per-extension count, labeled by `gardener.extension.type`.                         |
-| `garden.shoots.custom.apiserver.feature_gates_total`       | Per-feature-gate count for the kube-apiserver, labeled by `gardener.feature_gate`. |
-| `garden.shoots.custom.apiserver.admission_plugins_total`   | Per-admission-plugin count, labeled by `gardener.admission_plugin`.                |
-| `garden.shoots.custom.kcm.feature_gates_total`             | Per-feature-gate count for the kube-controller-manager.                            |
-| `garden.shoots.custom.scheduler.feature_gates_total`       | Per-feature-gate count for the kube-scheduler.                                     |
-| `garden.shoots.custom.proxy.mode_total`                    | Count of shoots by kube-proxy mode, labeled by `gardener.proxy.mode`.              |
+| Metric name                                                      | Description                                                                        |
+|------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| `garden.shoots.hibernation.enabled_total`                        | Count of shoots with hibernation enabled.                                          |
+| `garden.shoots.hibernation.schedule_total`                       | Count of shoots with a hibernation schedule configured.                            |
+| `garden.shoots.maintenance.window_total`                         | Count of shoots with a maintenance window configured.                              |
+| `garden.shoots.maintenance.autoupdate.k8s_version_total`         | Count of shoots with auto-update for Kubernetes versions configured.               |
+| `garden.shoots.maintenance.autoupdate.image_version_total`       | Count of shoots with auto-update for machine image versions configured.            |
+| `garden.shoots.custom.worker.multiple_pools_total`               | Count of shoots with multiple worker pools.                                        |
+| `garden.shoots.custom.worker.multi_zones_total`                  | Count of shoots with multi-zone worker pools.                                      |
+| `garden.shoots.custom.worker.taints_total`                       | Count of shoots with worker-pool taints.                                           |
+| `garden.shoots.custom.worker.labels_total`                       | Count of shoots with worker-pool labels.                                           |
+| `garden.shoots.custom.worker.annotations_total`                  | Count of shoots with worker-pool annotations.                                      |
+| `garden.shoots.custom.network.custom_domain_total`               | Count of shoots which use a custom DNS domain.                                     |
+| `garden.shoots.custom.apiserver.audit_policy_total`              | Count of shoots with an audit log policy configured on the kube-apiserver.         |
+| `garden.shoots.custom.apiserver.structured_authentication_total` | Count of shoots with structured authentication configured on the kube-apiserver.   |
+| `garden.shoots.custom.kcm.node_cidr_mask_size_total`             | Count of shoots with a node CIDR mask size configured on the KCM.                  |
+| `garden.shoots.custom.kcm.horizontal_pod_autoscale_total`        | Count of shoots with HPA configuration on the KCM.                                 |
+| `garden.shoots.custom.kubelet.pod_pid_limit_total`               | Count of shoots with a pod PID limit configured on the kubelet(s).                 |
+| `garden.shoots.custom.extensions_total`                          | Per-extension count, labeled by `gardener.extension.type`.                         |
+| `garden.shoots.custom.apiserver.feature_gates_total`             | Per-feature-gate count for the kube-apiserver, labeled by `gardener.feature_gate`. |
+| `garden.shoots.custom.apiserver.admission_plugins_total`         | Per-admission-plugin count, labeled by `gardener.admission_plugin`.                |
+| `garden.shoots.custom.kcm.feature_gates_total`                   | Per-feature-gate count for the kube-controller-manager.                            |
+| `garden.shoots.custom.scheduler.feature_gates_total`             | Per-feature-gate count for the kube-scheduler.                                     |
+| `garden.shoots.custom.proxy.mode_total`                          | Count of shoots by kube-proxy mode, labeled by `gardener.proxy.mode`.              |
 
 ## Deploying an OpenTelemetry Collector with the Gardener Receiver
 
@@ -155,7 +155,7 @@ Run from this directory:
 | Target                       | What it does                                                                                                        |
 |------------------------------|---------------------------------------------------------------------------------------------------------------------|
 | `make` / `make all`          | Full pre-commit pipeline: `go-generate`, `tidy`, `go-fmt`, `go-lint`, `goimports`, `check-license-headers`, `test`. |
-| `make test`                  | `tidy` + `go-lint` + `check-license-headers`, then `gotestsum --packages=./...` with shuffled tests.                 |
+| `make test`                  | `tidy` + `go-lint` + `check-license-headers`, then `gotestsum --packages=./...` with shuffled tests.                |
 | `make go-lint`               | `golangci-lint run` with the repo-wide config and `integration` build tag.                                          |
 | `make go-check`              | `tidy` + `go-lint` + `gosec` + `check-license-headers`.                                                             |
 | `make tidy`                  | `go mod tidy`.                                                                                                      |

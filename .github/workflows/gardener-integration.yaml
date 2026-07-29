@@ -1,0 +1,40 @@
+name: Gardener Integration Test
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      gardener_ref:
+        description: gardener/gardener git ref to test against
+        default: master
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  gardener-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout collector
+        uses: actions/checkout@v7
+
+      - name: Checkout gardener
+        uses: actions/checkout@v7
+        with:
+          repository: gardener/gardener
+          ref: ${{ github.event.inputs.gardener_ref || 'master' }}
+          path: gardener
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26'
+
+      - name: Run Gardener integration test
+        env:
+          GARDENER_DIR: ${{ github.workspace }}/gardener
+        run: hack/gardener-integration-test.sh

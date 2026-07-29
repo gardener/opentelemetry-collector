@@ -68,6 +68,31 @@ resolve_collector_image() {
   echo "${COLLECTOR_IMAGE_REPO}:${tag}"
 }
 
+# Poll Prometheus (assumed reachable at localhost:9090) until the given
+# count() query returns a non-zero result or the timeout elapses.
+poll_prometheus_metric() {
+  local description="$1"
+  local query="$2"
+
+  echo "Polling Prometheus for ${description}..."
+  local deadline=$((SECONDS + 300))
+  local count=0
+  while (( SECONDS < deadline )); do
+    count=$(curl -fsSG "http://localhost:9090/api/v1/query" \
+      --data-urlencode "query=${query}" \
+      | jq -r '.data.result[0].value[1] // "0"' 2>/dev/null || echo "0")
+    if [[ "${count}" != "0" && -n "${count}" ]]; then
+      echo "Found ${description} (count=${count})."
+      return 0
+    fi
+    echo "${description} not present yet; retrying in 10s..."
+    sleep 10
+  done
+
+  echo "Timed out waiting for ${description}" >&2
+  return 1
+}
+
 run_collector_integration_test() {
   local collector_image="$1"
 
@@ -87,12 +112,12 @@ run_collector_integration_test() {
     --dry-run=client -o yaml | kubectl apply -f -
   endgroup
 
-  group "Deploy OpenTelemetry Collector"
+  group "Deploy OpenTelemetry Collector with Prometheus exporter"
   kubectl apply -f - <<EOF
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
-  name: gardener
+  name: gardener-prometheus
   namespace: ${TEST_NAMESPACE}
 spec:
   image: ${collector_image}
@@ -122,6 +147,42 @@ spec:
         metrics:
           receivers: [gardener]
           exporters: [prometheus]
+EOF
+  endgroup
+
+  group "Deploy OpenTelemetry Collector with OTLP exporter"
+  kubectl apply -f - <<EOF
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: gardener-otlp
+  namespace: ${TEST_NAMESPACE}
+spec:
+  image: ${collector_image}
+  mode: deployment
+  replicas: 1
+  volumes:
+    - name: gardener-viewer-kubeconfig
+      secret:
+        secretName: gardener-viewer-kubeconfig
+  volumeMounts:
+    - name: gardener-viewer-kubeconfig
+      mountPath: /var/run/secrets/gardener
+      readOnly: true
+  config:
+    receivers:
+      gardener:
+        kubeconfig: /var/run/secrets/gardener/kubeconfig
+    exporters:
+      otlphttp:
+        # Prometheus OTLP receiver lives at /api/v1/otlp; the otlphttp
+        # exporter appends /v1/metrics to reach /api/v1/otlp/v1/metrics.
+        metrics_endpoint: http://prometheus-operated.${TEST_NAMESPACE}.svc:9090/api/v1/otlp/v1/metrics
+    service:
+      pipelines:
+        metrics:
+          receivers: [gardener]
+          exporters: [otlphttp]
 EOF
   endgroup
 
@@ -183,22 +244,26 @@ metadata:
   namespace: ${TEST_NAMESPACE}
 spec:
   serviceAccountName: prometheus
+  enableFeatures:
+    - otlp-write-receiver
+  otlp:
+    translationStrategy: NoTranslation
   serviceMonitorSelector:
     matchLabels:
-      app: gardener-collector
+      app: gardener-prometheus-collector
   serviceMonitorNamespaceSelector: {}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: gardener-collector
+  name: gardener-prometheus-collector
   namespace: ${TEST_NAMESPACE}
   labels:
-    app: gardener-collector
+    app: gardener-prometheus-collector
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: gardener-collector
+      app.kubernetes.io/name: gardener-prometheus-collector
       operator.opentelemetry.io/collector-service-type: base
   endpoints:
     - port: prometheus
@@ -213,9 +278,16 @@ EOF
 
   group "Wait for Collector deployment to become Ready"
   kubectl wait --namespace "${TEST_NAMESPACE}" \
-    --for=create deployment/gardener-collector --timeout=5m
+    --for=create deployment/gardener-prometheus-collector --timeout=5m
   kubectl rollout status --namespace "${TEST_NAMESPACE}" \
-    deployment/gardener-collector --timeout=5m
+    deployment/gardener-prometheus-collector --timeout=5m
+  endgroup
+
+  group "Wait for OTLP Collector deployment to become Ready"
+  kubectl wait --namespace "${TEST_NAMESPACE}" \
+    --for=create deployment/gardener-otlp-collector --timeout=5m
+  kubectl rollout status --namespace "${TEST_NAMESPACE}" \
+    deployment/gardener-otlp-collector --timeout=5m
   endgroup
 
   group "Wait for Prometheus instance to become Ready"
@@ -233,25 +305,21 @@ EOF
     service/prometheus-operated 9090:9090 >/dev/null 2>&1 &
   local port_forward_pid=$!
 
-  echo "Polling Prometheus for garden_shoot_info metric..."
-  local deadline=$((SECONDS + 300))
-  local count=0
-  while (( SECONDS < deadline )); do
-    count=$(curl -fsSG "http://localhost:9090/api/v1/query" \
-      --data-urlencode 'query=count(garden_shoot_info)' \
-      | jq -r '.data.result[0].value[1] // "0"' 2>/dev/null || echo "0")
-    if [[ "${count}" != "0" && -n "${count}" ]]; then
-      echo "Found garden_shoot_info metric (count=${count})."
-      break
-    fi
-    echo "garden_shoot_info not present yet; retrying in 10s..."
-    sleep 10
-  done
+  local scrape_rc=0 otlp_rc=0
+
+  # Scraped via the Prometheus exporter + ServiceMonitor: Prometheus-style
+  # name (dots become underscores).
+  poll_prometheus_metric "garden_shoot_info metric (scraped)" \
+    'count(garden_shoot_info)' || scrape_rc=$?
+
+  # Pushed via the second collector's otlphttp exporter into Prometheus' OTLP
+  # receiver with NoTranslation: raw OpenTelemetry name (dots preserved).
+  poll_prometheus_metric "garden.shoot.info metric (OTLP)" \
+    'count({__name__="garden.shoot.info"})' || otlp_rc=$?
 
   kill "${port_forward_pid}" 2>/dev/null || true
 
-  if [[ "${count}" == "0" || -z "${count}" ]]; then
-    echo "Timed out waiting for garden_shoot_info metric" >&2
+  if (( scrape_rc != 0 || otlp_rc != 0 )); then
     return 1
   fi
   endgroup

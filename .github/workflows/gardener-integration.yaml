@@ -42,5 +42,6 @@ jobs:
 
       - name: Run Gardener integration test
         env:
+          CI: ""
           GARDENER_DIR: ${{ github.workspace }}/gardener
         run: sudo -E env "PATH=$PATH" hack/gardener-integration-test.sh

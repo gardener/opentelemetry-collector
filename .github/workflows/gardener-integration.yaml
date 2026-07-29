@@ -34,6 +34,12 @@ jobs:
         with:
           go-version: '1.26'
 
+      - name: Install dnsmasq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dnsmasq
+          sudo systemctl disable --now dnsmasq || true
+
       - name: Run Gardener integration test
         env:
           GARDENER_DIR: ${{ github.workspace }}/gardener

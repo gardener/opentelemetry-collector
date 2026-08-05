@@ -62,6 +62,10 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 
 		// We don't want to send STOPPING=1, if we call s.cancel().
 		errStr := context.Cause(s.ctx).Error()
+		s.logger.Info(
+			"Collector shuts down",
+			zap.String("cause", errStr),
+		)
 		if errStr == syscall.SIGINT.String()+" signal received" || errStr == syscall.SIGTERM.String()+" signal received" {
 			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
 			if err != nil {

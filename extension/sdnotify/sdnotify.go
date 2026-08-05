@@ -60,21 +60,13 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 	go func() {
 		<-s.ctx.Done()
 
-		// We don't want to send STOPPING=1, if we call s.cancel().
-		errStr := context.Cause(s.ctx).Error()
-		s.logger.Info(
-			"Collector shuts down",
-			zap.String("cause", errStr),
-		)
-		if errStr == syscall.SIGINT.String()+" signal received" || errStr == syscall.SIGTERM.String()+" signal received" {
-			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
-			if err != nil {
-				s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
+		sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
+		if err != nil {
+			s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
 
-				return
-			} else if sent {
-				s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
-			}
+			return
+		} else if sent {
+			s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
 		}
 	}()
 

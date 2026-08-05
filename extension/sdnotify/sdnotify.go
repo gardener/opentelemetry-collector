@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,9 +25,10 @@ type sdnotify struct {
 	logger *zap.Logger
 	host   component.Host
 
-	ctx    context.Context
-	cancel context.CancelFunc
-	sigCh  chan os.Signal
+	shutdownOnce sync.Once
+	done         chan struct{}
+	termCh       chan os.Signal
+	sighupCh     chan os.Signal
 }
 
 // Extension is the union of capability interfaces sdnotify implements.
@@ -39,13 +41,15 @@ var _ Extension = (*sdnotify)(nil)
 
 func newSDNotify(cfg *Config, logger *zap.Logger) *sdnotify {
 	return &sdnotify{
-		cfg:    cfg,
-		logger: logger,
-		sigCh:  make(chan os.Signal, 1),
+		cfg:      cfg,
+		logger:   logger,
+		done:     make(chan struct{}),
+		termCh:   make(chan os.Signal, 1),
+		sighupCh: make(chan os.Signal, 1),
 	}
 }
 
-func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
+func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 	s.host = host
 
 	// If NOTIFY_SOCKET environment variable is unset, then the sd_notify protocol is no-op.
@@ -56,22 +60,21 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 	}
 
 	// STOPPING=1 must be sent only on genuine termination (SIGINT / SIGTERM).
-	s.ctx, s.cancel = signal.NotifyContext(startCtx, syscall.SIGINT, syscall.SIGTERM)
+	// signal.NotifyContext could be used here, but the otel collector has its own
+	// SIGINT / SIGTERM handler. Listening for a cancelled context would race it:
+	// if the collector's Shutdown() cancelled our context first, context.Cause is
+	// "context canceled" rather than the signal, and we'd miss sending STOPPING=1.
+	// Instead we watch the signal directly and use done to tell a real signal
+	// apart from a graceful Shutdown().
+	signal.Notify(s.termCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-s.ctx.Done()
-
-		// We don't want to send STOPPING=1, if we call s.cancel().
-		errStr := context.Cause(s.ctx).Error()
-		s.logger.Info(
-			"Collector shuts down",
-			zap.String("cause", errStr),
-		)
-		if errStr == syscall.SIGINT.String()+" signal received" || errStr == syscall.SIGTERM.String()+" signal received" {
+		select {
+		case <-s.done:
+			return
+		case <-s.termCh:
 			sent, err := daemon.SdNotify(false, daemon.SdNotifyStopping)
 			if err != nil {
 				s.logger.Warn("sdnotify STOPPING=1 failed", zap.Error(err))
-
-				return
 			} else if sent {
 				s.logger.Info("sdnotify: sent STOPPING=1 to systemd")
 			}
@@ -83,15 +86,15 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 	// The process is responsible for reloading its configuration and informing
 	// systemd when the reload has completed.
 	monotonicEpoch := time.Now()
-	signal.Notify(s.sigCh, syscall.SIGHUP)
+	signal.Notify(s.sighupCh, syscall.SIGHUP)
 	go func() {
 		for {
 			select {
-			case <-s.ctx.Done():
+			case <-s.done:
 				return
 
 			// This extension should not restart the process, because the collector handles it by itself.
-			case <-s.sigCh:
+			case <-s.sighupCh:
 				// Per sd_notify(3): MONOTONIC_USEC must be CLOCK_MONOTONIC in microseconds,
 				// formatted as a decimal string, in the same datagram as RELOADING=1.
 				monotonicUSec := uint64(max(time.Since(monotonicEpoch), 0) / time.Microsecond)
@@ -131,7 +134,7 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 			defer ticker.Stop()
 			for {
 				select {
-				case <-s.ctx.Done():
+				case <-s.done:
 					return
 				case <-ticker.C:
 					if _, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
@@ -146,11 +149,11 @@ func (s *sdnotify) Start(startCtx context.Context, host component.Host) error {
 }
 
 func (s *sdnotify) Shutdown(_ context.Context) error {
-	if s.cancel != nil {
-		// This extension should not stop the process, because the collector handles it by itself.
-		signal.Stop(s.sigCh)
-		s.cancel()
-	}
+	s.shutdownOnce.Do(func() {
+		signal.Stop(s.termCh)
+		signal.Stop(s.sighupCh)
+		close(s.done)
+	})
 
 	return nil
 }

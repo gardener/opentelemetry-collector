@@ -145,7 +145,7 @@ func (r *gardenerReceiver) collectSeedOperationStates(sm *pmetric.ScopeMetrics, 
 
 	statesMetric := sm.Metrics().AppendEmpty()
 	statesMetric.SetName("garden.seed.operation_states")
-	statesMetric.SetDescription("Operation state of a Seed. Available operations: 'Create'|'Reconcile'|'Delete'|'Migrate'|'Restore'.")
+	statesMetric.SetDescription("Operation state of a Seed. Available operations: 'Create'|'Reconcile'|'Delete'|'Migrate'|'Restore'|'LiveMigrate'.")
 	statesMetric.SetUnit("")
 	statesGauge := statesMetric.SetEmptyGauge()
 

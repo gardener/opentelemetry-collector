@@ -335,9 +335,11 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 	require.Contains(t, stopped, "Result=success",
 		"unit should exit cleanly after systemctl stop; show:\n%s", stopped)
 
-	journal = execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
-	require.Contains(t, journal, "sent STOPPING=1 to systemd",
-		"expected STOPPING=1 log line after systemctl stop; journal:\n%s", journal)
+	require.Eventually(t, func() bool {
+		journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+		return strings.Contains(journal, "sent STOPPING=1 to systemd")
+	}, 15*time.Second, 200*time.Millisecond,
+		"expected STOPPING=1 log line after systemctl stop")
 }
 
 // TestSDNotify_InvalidConfig_UnitFails verifies that when the collector config

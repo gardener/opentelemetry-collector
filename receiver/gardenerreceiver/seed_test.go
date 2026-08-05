@@ -67,17 +67,9 @@ func TestCollectSeedOperationStates(t *testing.T) {
 	statesMetric := scopeMetrics.At(0)
 	require.Equal(t, "garden.seed.operation_states", statesMetric.Name())
 
-	// Find the data point for the active Reconcile operation.
-	var reconcileDp pmetric.NumberDataPoint
-	for i := 0; i < statesMetric.Gauge().DataPoints().Len(); i++ {
-		dp := statesMetric.Gauge().DataPoints().At(i)
-		opType, _ := dp.Attributes().Get("gardener.operation.type")
-		if opType.Str() == "Reconcile" {
-			reconcileDp = dp
-			break
-		}
-	}
-	require.NotNil(t, reconcileDp, "missing Reconcile data point")
+	statesDataPoints := statesMetric.Gauge().DataPoints()
+	requireOperationTypes(t, statesDataPoints)
+	reconcileDp := requireReconcileOperationDataPoint(t, statesDataPoints)
 
 	name, ok := reconcileDp.Attributes().Get("gardener.seed.name")
 	require.True(t, ok, "missing name attribute")
@@ -90,27 +82,35 @@ func TestCollectSeedOperationStates(t *testing.T) {
 	require.Equal(t, int64(1), reconcileDp.IntValue(), "active operation should have value 1")
 
 	// Every non-active operation type should have value 0 and an empty state.
-	for i := 0; i < statesMetric.Gauge().DataPoints().Len(); i++ {
-		dp := statesMetric.Gauge().DataPoints().At(i)
-		opType, _ := dp.Attributes().Get("gardener.operation.type")
+	for i := 0; i < statesDataPoints.Len(); i++ {
+		dp := statesDataPoints.At(i)
+		opType, ok := dp.Attributes().Get("gardener.operation.type")
+		require.True(t, ok, "missing operation type")
 		if opType.Str() == "Reconcile" {
 			continue
 		}
 		require.Equal(t, int64(0), dp.IntValue(), "inactive operation should have value 0")
-		state, _ := dp.Attributes().Get("gardener.operation.state")
+		state, ok := dp.Attributes().Get("gardener.operation.state")
+		require.True(t, ok, "missing operation state")
 		require.Empty(t, state.Str(), "inactive operation should have empty state")
 	}
 
 	// Verify progress metric contains the right progress for the Reconcile operation.
 	progressMetric := scopeMetrics.At(1)
 	require.Equal(t, "garden.seed.operation_progress_percent", progressMetric.Name())
-	for i := 0; i < progressMetric.Gauge().DataPoints().Len(); i++ {
-		dp := progressMetric.Gauge().DataPoints().At(i)
-		opType, _ := dp.Attributes().Get("gardener.operation.type")
+	progressDataPoints := progressMetric.Gauge().DataPoints()
+	requireOperationTypes(t, progressDataPoints)
+	reconcileProgressDp := requireReconcileOperationDataPoint(t, progressDataPoints)
+	require.Equal(t, int64(100), reconcileProgressDp.IntValue(), "unexpected progress value")
+
+	for i := 0; i < progressDataPoints.Len(); i++ {
+		dp := progressDataPoints.At(i)
+		opType, ok := dp.Attributes().Get("gardener.operation.type")
+		require.True(t, ok, "missing operation type")
 		if opType.Str() == "Reconcile" {
-			require.Equal(t, int64(100), dp.IntValue(), "unexpected progress value")
-			break
+			continue
 		}
+		require.Equal(t, int64(0), dp.IntValue(), "inactive operation should have progress 0")
 	}
 }
 
@@ -148,11 +148,23 @@ func TestCollectSeedOperationStates_NoLastOperation(t *testing.T) {
 	statesMetric := scopeMetrics.At(0)
 	require.Equal(t, "garden.seed.operation_states", statesMetric.Name())
 
-	for i := 0; i < statesMetric.Gauge().DataPoints().Len(); i++ {
-		dp := statesMetric.Gauge().DataPoints().At(i)
+	statesDataPoints := statesMetric.Gauge().DataPoints()
+	requireOperationTypes(t, statesDataPoints)
+	for i := 0; i < statesDataPoints.Len(); i++ {
+		dp := statesDataPoints.At(i)
 		require.Equal(t, int64(0), dp.IntValue(), "no active operation should have value 0")
-		state, _ := dp.Attributes().Get("gardener.operation.state")
+		state, ok := dp.Attributes().Get("gardener.operation.state")
+		require.True(t, ok, "missing operation state")
 		require.Empty(t, state.Str(), "no active operation should have empty state")
+	}
+
+	progressMetric := scopeMetrics.At(1)
+	require.Equal(t, "garden.seed.operation_progress_percent", progressMetric.Name())
+	progressDataPoints := progressMetric.Gauge().DataPoints()
+	requireOperationTypes(t, progressDataPoints)
+	for i := 0; i < progressDataPoints.Len(); i++ {
+		dp := progressDataPoints.At(i)
+		require.Equal(t, int64(0), dp.IntValue(), "no active operation should have progress 0")
 	}
 }
 

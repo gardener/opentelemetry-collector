@@ -217,7 +217,7 @@ func TestEmitShootOperations(t *testing.T) {
 	gardenerReceiver.collectShootOperationStates(&sm, nowTimestamp())
 
 	// collectShootOperationStates emits 2 metrics (operation_states + operation_progress_percent),
-	// each with 5 data points (one per operation type: Create, Reconcile, Delete, Migrate, Restore).
+	// each with 6 data points (one per operation type: Create, Reconcile, Delete, Migrate, Restore, LiveMigrate).
 	require.Equal(t, 0, consumer.DataPointCount(), "unexpected data points")
 	require.Equal(t, 2, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 12, md.DataPointCount(), "unexpected data point count")
@@ -226,17 +226,9 @@ func TestEmitShootOperations(t *testing.T) {
 	statesMetric := scopeMetrics.At(0)
 	require.Equal(t, "garden.shoot.operation_states", statesMetric.Name(), "unexpected metric name")
 
-	// Find the data point for the active Reconcile operation.
-	var reconcileDp pmetric.NumberDataPoint
-	for i := 0; i < statesMetric.Gauge().DataPoints().Len(); i++ {
-		dp := statesMetric.Gauge().DataPoints().At(i)
-		opType, _ := dp.Attributes().Get("gardener.operation.type")
-		if opType.Str() == "Reconcile" {
-			reconcileDp = dp
-			break
-		}
-	}
-	require.NotNil(t, reconcileDp, "missing Reconcile data point")
+	statesDataPoints := statesMetric.Gauge().DataPoints()
+	requireOperationTypes(t, statesDataPoints)
+	reconcileDp := requireReconcileOperationDataPoint(t, statesDataPoints)
 
 	attributes := reconcileDp.Attributes()
 
@@ -261,17 +253,35 @@ func TestEmitShootOperations(t *testing.T) {
 	require.Equal(t, "shoot-uid-123", uid.Str(), "unexpected uid attribute")
 
 	require.Equal(t, int64(1), reconcileDp.IntValue(), "active operation should have value 1")
+	for i := 0; i < statesDataPoints.Len(); i++ {
+		dp := statesDataPoints.At(i)
+		opType, ok := dp.Attributes().Get("gardener.operation.type")
+		require.True(t, ok, "missing operation type")
+		if opType.Str() == "Reconcile" {
+			continue
+		}
+		require.Equal(t, int64(0), dp.IntValue(), "inactive operation should have value 0")
+		state, ok := dp.Attributes().Get("gardener.operation.state")
+		require.True(t, ok, "missing operation state")
+		require.Empty(t, state.Str(), "inactive operation should have empty state")
+	}
 
 	// Verify progress metric contains the right progress for the Reconcile operation.
 	progressMetric := scopeMetrics.At(1)
 	require.Equal(t, "garden.shoot.operation_progress_percent", progressMetric.Name(), "unexpected progress metric name")
-	for i := 0; i < progressMetric.Gauge().DataPoints().Len(); i++ {
-		dp := progressMetric.Gauge().DataPoints().At(i)
-		opType, _ := dp.Attributes().Get("gardener.operation.type")
+	progressDataPoints := progressMetric.Gauge().DataPoints()
+	requireOperationTypes(t, progressDataPoints)
+	reconcileProgressDp := requireReconcileOperationDataPoint(t, progressDataPoints)
+	require.Equal(t, int64(100), reconcileProgressDp.IntValue(), "unexpected progress value")
+
+	for i := 0; i < progressDataPoints.Len(); i++ {
+		dp := progressDataPoints.At(i)
+		opType, ok := dp.Attributes().Get("gardener.operation.type")
+		require.True(t, ok, "missing operation type")
 		if opType.Str() == "Reconcile" {
-			require.Equal(t, int64(100), dp.IntValue(), "unexpected progress value")
-			break
+			continue
 		}
+		require.Equal(t, int64(0), dp.IntValue(), "inactive operation should have progress 0")
 	}
 }
 

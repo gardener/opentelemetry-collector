@@ -66,6 +66,8 @@ func (s *sdnotify) Start(_ context.Context, host component.Host) error {
 	// "context canceled" rather than the signal, and we'd miss sending STOPPING=1.
 	// Instead we watch the signal directly and use done to tell a real signal
 	// apart from a graceful Shutdown().
+	//
+	// For more context: https://github.com/open-telemetry/opentelemetry-collector/issues/15732
 	signal.Notify(s.termCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		select {

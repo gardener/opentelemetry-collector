@@ -288,6 +288,7 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 		corev1beta1.LastOperationTypeDelete,
 		corev1beta1.LastOperationTypeMigrate,
 		corev1beta1.LastOperationTypeRestore,
+		corev1beta1.LastOperationTypeLiveMigrate,
 	}
 
 	for _, item := range shootList {

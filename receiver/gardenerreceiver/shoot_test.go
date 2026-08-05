@@ -220,7 +220,7 @@ func TestEmitShootOperations(t *testing.T) {
 	// each with 5 data points (one per operation type: Create, Reconcile, Delete, Migrate, Restore).
 	require.Equal(t, 0, consumer.DataPointCount(), "unexpected data points")
 	require.Equal(t, 2, md.MetricCount(), "unexpected metric count")
-	require.Equal(t, 10, md.DataPointCount(), "unexpected data point count")
+	require.Equal(t, 12, md.DataPointCount(), "unexpected data point count")
 
 	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	statesMetric := scopeMetrics.At(0)

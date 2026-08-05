@@ -314,15 +314,19 @@ func TestSDNotify_HappyPath_LifecycleIntegration(t *testing.T) {
 		"MainPID must not change on in-process reload; before=%s after=%s", beforePID, afterPID)
 
 	// Reload journal: RELOADING=1 + >=2 READY=1 - the second is the post-reload
-	// ready. STOPPING=1 must NOT appear yet - the extension only emits it on
-	// genuine termination (SIGINT / SIGTERM), never mid-reload.
-	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
-	require.Contains(t, journal, "sent RELOADING=1 to systemd",
-		"expected RELOADING=1 log line after SIGHUP; journal:\n%s", journal)
+	// ready. The unit flips back to active before those log lines are guaranteed
+	// to be flushed to journald, so poll for them rather than reading once.
+	var journal string
+	require.Eventually(t, func() bool {
+		journal = execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+		return strings.Contains(journal, "sent RELOADING=1 to systemd") &&
+			strings.Count(journal, "sent READY=1 to systemd") >= 2
+	}, 15*time.Second, 200*time.Millisecond,
+		"expected RELOADING=1 + >=2 READY=1 (boot + reload) log lines after SIGHUP")
+	// STOPPING=1 must NOT appear - the extension only emits it on genuine
+	// termination (SIGINT / SIGTERM), never mid-reload.
 	require.NotContains(t, journal, "sent STOPPING=1 to systemd",
 		"STOPPING=1 must not appear during an in-process reload; journal:\n%s", journal)
-	require.GreaterOrEqual(t, strings.Count(journal, "sent READY=1 to systemd"), 2,
-		"expected >=2 READY=1 log lines (boot + reload); journal:\n%s", journal)
 
 	// Shutdown flow: systemctl stop SIGTERMs the process; the extension's
 	// termination handler must emit STOPPING=1 before the unit exits.
@@ -399,9 +403,13 @@ func TestSDNotify_BadExporter_ReachesReady(t *testing.T) {
 	require.Contains(t, show, "ActiveState=active",
 		"unit should be active even when the exporter target is unreachable; show:\n%s", show)
 
-	journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
-	require.Contains(t, journal, "sent READY=1 to systemd",
-		"expected READY=1 to be emitted with an unreachable exporter; journal:\n%s", journal)
+	// The unit is active before the READY=1 log line is guaranteed flushed to
+	// journald, so poll for it rather than reading once.
+	require.Eventually(t, func() bool {
+		journal := execAndCollect(ctx, t, ctr, "journalctl", "-u", "otelcol.service", "--no-pager")
+		return strings.Contains(journal, "sent READY=1 to systemd")
+	}, 15*time.Second, 200*time.Millisecond,
+		"expected READY=1 to be emitted with an unreachable exporter")
 }
 
 // TestSDNotify_NoNotifySocket_NoopBranch verifies the extension's no-op

@@ -4,7 +4,7 @@
 
 include ../../Makefile.Common
 
-.PHONY: bench-memory bench-memory-profile
+.PHONY: bench-memory bench-memory-profile test-e2e
 
 # Steady-state and churn memory benchmarks. Build-tagged so they don't run in
 # normal `go test ./...`. count=5 gives benchstat enough samples to call
@@ -19,3 +19,6 @@ bench-memory-profile:
 	go test -tags=bench -run=^$$ -bench=BenchmarkScale_ShootCache/N=10000 \
 	    -memprofile=mem.prof -benchtime=1x ./...
 	go tool pprof -top -unit=mb mem.prof
+
+test-e2e:
+	./hack/gardener-receiver-e2e-test.sh

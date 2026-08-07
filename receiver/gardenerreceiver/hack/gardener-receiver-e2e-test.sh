@@ -5,9 +5,15 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The gardenerreceiver Go module root (one level up from hack/); the metric
+# validation runs as a build-tagged Go test rooted here.
+MODULE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 GARDENER_DIR="${GARDENER_DIR:-${GOPATH:-$(go env GOPATH)}/src/github.com/gardener/gardener}"
 COLLECTOR_IMAGE_REPO="${COLLECTOR_IMAGE_REPO:-europe-docker.pkg.dev/gardener-project/snapshots/gardener/observability/opentelemetry-collector}"
-TEST_NAMESPACE="${TEST_NAMESPACE:-gardener-monitoring-test}"
+# Exported so the Go validation test (hack/e2e) picks up the same namespace.
+export TEST_NAMESPACE="${TEST_NAMESPACE:-gardener-monitoring-test}"
 
 export KUBECONFIG="${GARDENER_DIR}/dev-setup/kubeconfigs/runtime/kubeconfig"
 
@@ -69,31 +75,6 @@ resolve_collector_image() {
   fi
 
   echo "${COLLECTOR_IMAGE_REPO}:${tag}"
-}
-
-# Poll Prometheus (assumed reachable at localhost:9090) until the given
-# count() query returns a non-zero result or the timeout elapses.
-poll_prometheus_metric() {
-  local description="$1"
-  local query="$2"
-
-  echo "Polling Prometheus for ${description}..."
-  local deadline=$((SECONDS + 300))
-  local count=0
-  while (( SECONDS < deadline )); do
-    count=$(curl -fsSG "http://localhost:9090/api/v1/query" \
-      --data-urlencode "query=${query}" \
-      | jq -r '.data.result[0].value[1] // "0"' 2>/dev/null || echo "0")
-    if [[ "${count}" != "0" && -n "${count}" ]]; then
-      echo "Found ${description} (count=${count})."
-      return 0
-    fi
-    echo "${description} not present yet; retrying in 10s..."
-    sleep 10
-  done
-
-  echo "Timed out waiting for ${description}" >&2
-  return 1
 }
 
 run_collector_e2e_test() {
@@ -300,31 +281,15 @@ EOF
     statefulset/prometheus-gardener --timeout=5m
   endgroup
 
-  group "Wait for Shoot metrics"
+  group "Validate Shoot metrics"
+  # The prometheus-operated service must exist before the Go test can
+  # port-forward to it; everything else (readiness, querying, assertions) is
+  # handled by the build-tagged Ginkgo suite in test/e2e.
   kubectl wait --namespace "${TEST_NAMESPACE}" \
     --for=create service/prometheus-operated --timeout=5m
 
-  kubectl port-forward --namespace "${TEST_NAMESPACE}" \
-    service/prometheus-operated 9090:9090 >/dev/null 2>&1 &
-  local port_forward_pid=$!
-
-  local scrape_rc=0 otlp_rc=0
-
-  # Scraped via the Prometheus exporter + ServiceMonitor: Prometheus-style
-  # name (dots become underscores).
-  poll_prometheus_metric "garden_shoot_info metric (scraped)" \
-    'count(garden_shoot_info)' || scrape_rc=$?
-
-  # Pushed via the second collector's otlphttp exporter into Prometheus' OTLP
-  # receiver with NoTranslation: raw OpenTelemetry name (dots preserved).
-  poll_prometheus_metric "garden.shoot.info metric (OTLP)" \
-    'count({__name__="garden.shoot.info"})' || otlp_rc=$?
-
-  kill "${port_forward_pid}" 2>/dev/null || true
-
-  if (( scrape_rc != 0 || otlp_rc != 0 )); then
-    return 1
-  fi
+  # KUBECONFIG and TEST_NAMESPACE are exported above and consumed by the test.
+  ( cd "${MODULE_DIR}" && go test -tags=e2e -timeout=15m ./test/e2e/... )
   endgroup
 }
 

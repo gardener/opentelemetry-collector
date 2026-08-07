@@ -89,7 +89,8 @@ unique identifier for a shoot is `gardener.shoot.uid`.
 | Seeds          | `garden.seed.capacity`                    | Capacity reported by the seed (e.g. shoots).                                                                                  |
 | Seeds          | `garden.seed.usage`                       | Allocatable resources reported by the seed.                                                                                   |
 | Seeds          | `garden.seed.condition`                   | One data point per seed condition with value `1`; condition type/status/reason are attributes.                                |
-| Seeds          | `garden.seed.operation`                   | Current operation type/state of the seed (with `gardener.operation.progress`).                                                |
+| Seeds          | `garden.seed.operation_states`            | One data point per supported operation type; current operation is `1`, all other operation types are `0`.                     |
+| Seeds          | `garden.seed.operation_progress_percent`  | Progress of the current operation in percent; non-current operation types are emitted with `0`.                               |
 | Projects       | `garden.project.info`                     | Static project metadata.                                                                                                      |
 | Projects       | `garden.users`                            | Total project member count grouped by user kind.                                                                              |
 | ManagedSeeds   | `garden.managed_seed.info`                | Static managed seed metadata.                                                                                                 |

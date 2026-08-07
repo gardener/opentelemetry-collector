@@ -143,25 +143,51 @@ func (r *gardenerReceiver) collectSeedOperationStates(sm *pmetric.ScopeMetrics, 
 		return
 	}
 
-	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.operation")
-	metric.SetDescription("Operation state of a Seed. Available operations: 'Create'|'Reconcile'|'Delete'|'Restore'|'Migrate'.")
-	metric.SetUnit("")
+	statesMetric := sm.Metrics().AppendEmpty()
+	statesMetric.SetName("garden.seed.operation_states")
+	statesMetric.SetDescription("Operation state of a Seed. Available operations: 'Create'|'Reconcile'|'Delete'|'Migrate'|'Restore'|'LiveMigrate'.")
+	statesMetric.SetUnit("")
+	statesGauge := statesMetric.SetEmptyGauge()
 
-	gauge := metric.SetEmptyGauge()
+	progressMetric := sm.Metrics().AppendEmpty()
+	progressMetric.SetName("garden.seed.operation_progress_percent")
+	progressMetric.SetDescription("Operation progress of a Seed in percent.")
+	progressMetric.SetUnit("%")
+	progressGauge := progressMetric.SetEmptyGauge()
+
+	allOperationTypes := []corev1beta1.LastOperationType{
+		corev1beta1.LastOperationTypeCreate,
+		corev1beta1.LastOperationTypeReconcile,
+		corev1beta1.LastOperationTypeDelete,
+		corev1beta1.LastOperationTypeMigrate,
+		corev1beta1.LastOperationTypeRestore,
+		corev1beta1.LastOperationTypeLiveMigrate,
+	}
 
 	for _, seedListItem := range seedList {
 		seed := seedListItem.(*corev1beta1.Seed)
-		if seed.Status.LastOperation == nil {
-			continue
+
+		for _, opType := range allOperationTypes {
+			statesDp := statesGauge.DataPoints().AppendEmpty()
+			statesDp.SetTimestamp(now)
+			statesDp.Attributes().PutStr("gardener.seed.name", seed.Name)
+			statesDp.Attributes().PutStr("gardener.operation.type", string(opType))
+
+			progressDp := progressGauge.DataPoints().AppendEmpty()
+			progressDp.SetTimestamp(now)
+			progressDp.Attributes().PutStr("gardener.seed.name", seed.Name)
+			progressDp.Attributes().PutStr("gardener.operation.type", string(opType))
+
+			if seed.Status.LastOperation != nil && seed.Status.LastOperation.Type == opType {
+				statesDp.Attributes().PutStr("gardener.operation.state", string(seed.Status.LastOperation.State))
+				statesDp.SetIntValue(1)
+				progressDp.SetIntValue(int64(seed.Status.LastOperation.Progress))
+			} else {
+				statesDp.Attributes().PutStr("gardener.operation.state", "")
+				statesDp.SetIntValue(0)
+				progressDp.SetIntValue(0)
+			}
 		}
-		dp := gauge.DataPoints().AppendEmpty()
-		dp.SetTimestamp(now)
-		dp.SetIntValue(1)
-		dp.Attributes().PutStr("gardener.seed.name", seed.Name)
-		dp.Attributes().PutStr("gardener.operation.type", string(seed.Status.LastOperation.Type))
-		dp.Attributes().PutStr("gardener.operation.state", string(seed.Status.LastOperation.State))
-		dp.Attributes().PutInt("gardener.operation.progress", int64(seed.Status.LastOperation.Progress))
 	}
 }
 

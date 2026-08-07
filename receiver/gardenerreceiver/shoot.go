@@ -272,7 +272,7 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 
 	statesMetric := sm.Metrics().AppendEmpty()
 	statesMetric.SetName("garden.shoot.operation_states")
-	statesMetric.SetDescription("Operation state of a Shoot. Available operations: 'Create'|'Reconcile'|'Delete'|'Migrate'|'Restore'.")
+	statesMetric.SetDescription("Operation state of a Shoot. Available operations: 'Create'|'Reconcile'|'Delete'|'Migrate'|'Restore'|'LiveMigrate'.")
 	statesMetric.SetUnit("")
 	statesGauge := statesMetric.SetEmptyGauge()
 
@@ -288,6 +288,7 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 		corev1beta1.LastOperationTypeDelete,
 		corev1beta1.LastOperationTypeMigrate,
 		corev1beta1.LastOperationTypeRestore,
+		corev1beta1.LastOperationTypeLiveMigrate,
 	}
 
 	for _, item := range shootList {

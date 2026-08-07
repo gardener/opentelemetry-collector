@@ -93,7 +93,7 @@ poll_prometheus_metric() {
   return 1
 }
 
-run_collector_integration_test() {
+run_collector_e2e_test() {
   local collector_image="$1"
 
   group "Create test namespace"
@@ -335,7 +335,7 @@ main() {
   echo "Resolved Collector image: ${collector_image}"
   endgroup
 
-  run_collector_integration_test "${collector_image}"
+  run_collector_e2e_test "${collector_image}"
 }
 
 main "$@"

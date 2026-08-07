@@ -44,4 +44,4 @@ jobs:
         env:
           CI: ""
           GARDENER_DIR: ${{ github.workspace }}/gardener
-        run: sudo -E env "PATH=$PATH" receiver/gardenerreceiver/hack/gardener-receiver-e2e-test.sh
+        run: sudo -E env "PATH=$PATH" make -C receiver/gardenerreceiver test-e2e

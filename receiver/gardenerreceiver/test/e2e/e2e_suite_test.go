@@ -15,7 +15,7 @@ import (
 
 // TestE2E is the entry point for the Gardener receiver end-to-end suite. It is
 // guarded by the `e2e` build tag so it never runs as part of `go test ./...`;
-// the cluster it asserts against is provisioned by
+// the KinD cluster and Gardener installation it deploys onto are provisioned by
 // hack/gardener-receiver-e2e-test.sh.
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)

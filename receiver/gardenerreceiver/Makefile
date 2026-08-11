@@ -4,6 +4,8 @@
 
 include ../../Makefile.Common
 
+GINKGO := go tool -modfile $(TOOLS_MOD_FILE) ginkgo
+
 .PHONY: bench-memory bench-memory-profile test-e2e test-e2e-validate
 
 # Steady-state and churn memory benchmarks. Build-tagged so they don't run in
@@ -29,4 +31,4 @@ test-e2e:
 # Expects KUBECONFIG, GARDENER_API_KUBECONFIG, GARDENER_DIR, COLLECTOR_IMAGE (and
 # optionally TEST_NAMESPACE) to be set — see hack/gardener-receiver-e2e-test.sh.
 test-e2e-validate:
-	go test -tags=e2e -timeout=30m ./test/e2e/...
+	$(GINKGO) --tags=e2e --timeout=30m --github-output -v ./test/e2e/...

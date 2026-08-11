@@ -4,10 +4,11 @@
 
 //go:build e2e
 
-// Package e2e validates that the Gardener receiver's metrics land in the
-// Prometheus instance deployed by hack/gardener-receiver-e2e-test.sh. The shell
-// script provisions the cluster and all components; this suite is invoked at
-// the end to perform the actual assertions.
+// Package e2e deploys the Gardener receiver end to end and validates that its
+// metrics land in Prometheus. The hack/gardener-receiver-e2e-test.sh script
+// brings up the KinD cluster, deploys Gardener, and resolves the collector
+// image; this suite deploys every component (collectors, Prometheus, Shoot) and
+// performs the assertions.
 package e2e
 
 import (
@@ -27,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
@@ -50,22 +50,29 @@ var pf struct {
 	stopChan chan struct{}
 }
 
-var _ = BeforeSuite(func() {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	Expect(kubeconfig).NotTo(BeEmpty(), "KUBECONFIG must point at the runtime cluster kubeconfig")
-
-	namespace := os.Getenv("TEST_NAMESPACE")
-	if namespace == "" {
-		namespace = defaultNamespace
+// testNamespace is the runtime-cluster namespace every component is deployed
+// into, overridable via TEST_NAMESPACE (the shell exports the same default).
+func testNamespace() string {
+	if ns := os.Getenv("TEST_NAMESPACE"); ns != "" {
+		return ns
 	}
+	return defaultNamespace
+}
 
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	Expect(err).NotTo(HaveOccurred(), "load kubeconfig")
+var _ = BeforeSuite(func() {
+	ctx := context.Background()
+
+	// Deploy every component (namespace, secret, collectors, Prometheus stack,
+	// Shoot) and wait for the operator-generated workloads to become Ready. The
+	// shell script only brings up the cluster, deploys Gardener, and resolves the
+	// collector image; everything downstream lives here.
+	restConfig := deployComponents(ctx)
+
+	namespace := testNamespace()
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred(), "build clientset")
 
-	ctx := context.Background()
 	pod := readyPrometheusPod(ctx, clientset, namespace)
 
 	localPort, stopChan := startPortForward(restConfig, clientset, namespace, pod)

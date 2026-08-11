@@ -85,15 +85,13 @@ resolve_collector_image() {
 run_e2e_test() {
   local collector_image="$1"
 
-  group "Deploy components and validate Shoot metrics"
   # The Go/Ginkgo suite deploys the collectors, the Prometheus stack, and the
   # Shoot, waits for the operator-generated workloads to become Ready, then
   # port-forwards Prometheus and asserts the expected metrics appear. It reads
   # KUBECONFIG, GARDENER_API_KUBECONFIG, GARDENER_DIR, TEST_NAMESPACE, and
   # COLLECTOR_IMAGE from the environment (all exported above / passed here).
-  COLLECTOR_IMAGE="${collector_image}" \
-    go test -C "${MODULE_DIR}" -tags=e2e -timeout=30m ./test/e2e/...
-  endgroup
+    COLLECTOR_IMAGE="${collector_image}" \
+    make -C "${MODULE_DIR}" test-e2e-validate
 }
 
 main() {

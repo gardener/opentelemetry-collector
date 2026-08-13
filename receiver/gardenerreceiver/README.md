@@ -77,7 +77,7 @@ unique identifier for a shoot is `gardener.shoot.uid`.
 | Shoots         | `garden.shoot.info`                       | Static metadata as attributes (provider, region, k8s version, purpose, failure tolerance, billing/cost-object attributes, …). |
 | Shoots         | `garden.shoot.hibernated`                 | `1` if the shoot is hibernated, `0` otherwise.                                                                                |
 | Shoots         | `garden.shoot.creation_timestamp`         | Unix timestamp of `metadata.creationTimestamp`.                                                                               |
-| Shoots         | `garden.shoot.condition`                  | State metric over condition type: one data point per condition with value `1`; condition type/status/reason are attributes.   |
+| Shoots         | `garden.shoot.condition`                  | StateSet over condition status: for each condition type, one data point per possible status (`True`/`False`/`Progressing`/`Unknown`) with value `1` for the active status and `0` otherwise; condition type/status/reason are attributes. |
 | Shoots         | `garden.shoot.status`                     | State metric over Shoot status: one data point per status with `1` for the current status and `0` for the others.             |
 | Shoots         | `garden.shoot.operation_states`           | One data point per supported operation type; current operation is `1`, all other operation types are `0`.                     |
 | Shoots         | `garden.shoot.operation_progress_percent` | Progress of the current operation in percent; non-current operation types are emitted with `0`.                               |

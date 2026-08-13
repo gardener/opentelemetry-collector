@@ -333,9 +333,16 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 
 	metric := sm.Metrics().AppendEmpty()
 	metric.SetName("garden.shoot.condition")
-	metric.SetDescription("Condition state of a Gardener shoot")
+	metric.SetDescription("Condition state of a Gardener shoot. Available statuses: 'True'|'False'|'Progressing'|'Unknown'.")
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
+
+	allConditionStatuses := []corev1beta1.ConditionStatus{
+		corev1beta1.ConditionTrue,
+		corev1beta1.ConditionFalse,
+		corev1beta1.ConditionProgressing,
+		corev1beta1.ConditionUnknown,
+	}
 
 	for _, item := range shootList {
 		shoot := item.(*corev1beta1.Shoot)
@@ -349,19 +356,25 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 		isCompliant := getMaintenancePreconditionsStatus(shoot)
 
 		for _, condition := range shoot.Status.Conditions {
-			dp := gauge.DataPoints().AppendEmpty()
-			dp.SetTimestamp(now)
-			dp.SetIntValue(1)
-			dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
-			dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
-			dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
-			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
-			dp.Attributes().PutStr("gardener.condition.type", string(condition.Type))
-			dp.Attributes().PutStr("gardener.condition.status", string(condition.Status))
-			dp.Attributes().PutStr("gardener.condition.reason", condition.Reason)
-			dp.Attributes().PutStr("gardener.operation.type", operationType)
-			dp.Attributes().PutBool("gardener.shoot.has_user_errors", shootHasUserErrors)
-			dp.Attributes().PutStr("gardener.shoot.is_compliant", isCompliant)
+			for _, status := range allConditionStatuses {
+				dp := gauge.DataPoints().AppendEmpty()
+				dp.SetTimestamp(now)
+				if condition.Status == status {
+					dp.SetIntValue(1)
+				} else {
+					dp.SetIntValue(0)
+				}
+				dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
+				dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
+				dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
+				dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
+				dp.Attributes().PutStr("gardener.condition.type", string(condition.Type))
+				dp.Attributes().PutStr("gardener.condition.status", string(status))
+				dp.Attributes().PutStr("gardener.condition.reason", condition.Reason)
+				dp.Attributes().PutStr("gardener.operation.type", operationType)
+				dp.Attributes().PutBool("gardener.shoot.has_user_errors", shootHasUserErrors)
+				dp.Attributes().PutStr("gardener.shoot.is_compliant", isCompliant)
+			}
 		}
 	}
 }

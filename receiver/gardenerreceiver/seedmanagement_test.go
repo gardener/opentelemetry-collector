@@ -134,9 +134,16 @@ func TestCollectGardenletMetrics(t *testing.T) {
 			require.Equal(t, int64(4), m.Gauge().DataPoints().At(0).IntValue())
 		case "garden.gardenlet.condition":
 			require.Equal(t, 1, m.Gauge().DataPoints().Len())
-			condType, ok := m.Gauge().DataPoints().At(0).Attributes().Get("gardener.condition.type")
+			dp := m.Gauge().DataPoints().At(0)
+			condType, ok := dp.Attributes().Get("gardener.condition.type")
 			require.True(t, ok)
 			require.Equal(t, "GardenletReconciled", condType.Str())
+			require.Equal(t, int64(1), dp.IntValue(), "expected value 1 for ConditionTrue status")
+
+			_, ok = dp.Attributes().Get("gardener.condition.status")
+			require.False(t, ok, "unexpected condition.status attribute")
+			_, ok = dp.Attributes().Get("gardener.condition.reason")
+			require.False(t, ok, "unexpected condition.reason attribute")
 		}
 	}
 }

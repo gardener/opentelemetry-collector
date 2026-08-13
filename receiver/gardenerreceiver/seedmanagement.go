@@ -49,7 +49,7 @@ func (r *gardenerReceiver) collectGardenletMetrics(sm *pmetric.ScopeMetrics, now
 
 	conditionMetric := sm.Metrics().AppendEmpty()
 	conditionMetric.SetName("garden.gardenlet.condition")
-	conditionMetric.SetDescription("Condition state of a Gardenlet")
+	conditionMetric.SetDescription("Condition state of a Gardenlet. " + conditionValueDescription)
 	conditionMetric.SetUnit("")
 	conditionGauge := conditionMetric.SetEmptyGauge()
 
@@ -71,11 +71,9 @@ func (r *gardenerReceiver) collectGardenletMetrics(sm *pmetric.ScopeMetrics, now
 		for _, condition := range gl.Status.Conditions {
 			dp := conditionGauge.DataPoints().AppendEmpty()
 			dp.SetTimestamp(now)
-			dp.SetIntValue(1)
+			dp.SetIntValue(mapConditionStatus(condition.Status))
 			dp.Attributes().PutStr("gardener.gardenlet.name", gl.Name)
 			dp.Attributes().PutStr("gardener.condition.type", string(condition.Type))
-			dp.Attributes().PutStr("gardener.condition.status", string(condition.Status))
-			dp.Attributes().PutStr("gardener.condition.reason", condition.Reason)
 		}
 
 		genDp := generationGauge.DataPoints().AppendEmpty()

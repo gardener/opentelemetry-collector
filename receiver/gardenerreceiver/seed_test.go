@@ -412,6 +412,11 @@ func TestCollectSeedConditions(t *testing.T) {
 					Status: corev1beta1.ConditionTrue,
 					Reason: "AllComponentsHealthy",
 				},
+				{
+					Type:   "SeedBackupBucketsReady",
+					Status: corev1beta1.ConditionProgressing,
+					Reason: "BackupBucketsProgressing",
+				},
 			},
 		},
 	}
@@ -433,7 +438,7 @@ func TestCollectSeedConditions(t *testing.T) {
 	r.collectSeedConditions(&sm, nowTimestamp())
 
 	require.Equal(t, 1, md.MetricCount())
-	require.Equal(t, 1, md.DataPointCount())
+	require.Equal(t, 2, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
 	require.Equal(t, "garden.seed.condition", m.Name())
 
@@ -444,6 +449,18 @@ func TestCollectSeedConditions(t *testing.T) {
 	condType, ok := dp.Attributes().Get("gardener.condition.type")
 	require.True(t, ok)
 	require.Equal(t, "SeedSystemComponentsHealthy", condType.Str())
+	require.Equal(t, int64(1), dp.IntValue(), "expected value 1 for ConditionTrue status")
+
+	_, ok = dp.Attributes().Get("gardener.condition.status")
+	require.False(t, ok, "unexpected condition.status attribute")
+	_, ok = dp.Attributes().Get("gardener.condition.reason")
+	require.False(t, ok, "unexpected condition.reason attribute")
+
+	progressingDp := m.Gauge().DataPoints().At(1)
+	progressingType, ok := progressingDp.Attributes().Get("gardener.condition.type")
+	require.True(t, ok)
+	require.Equal(t, "SeedBackupBucketsReady", progressingType.Str())
+	require.Equal(t, int64(2), progressingDp.IntValue(), "expected value 2 for ConditionProgressing status")
 }
 
 func TestCollectSeedAllocatableMetrics(t *testing.T) {

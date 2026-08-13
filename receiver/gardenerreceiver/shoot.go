@@ -333,7 +333,7 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 
 	metric := sm.Metrics().AppendEmpty()
 	metric.SetName("garden.shoot.condition")
-	metric.SetDescription("Condition state of a Gardener shoot")
+	metric.SetDescription("Condition state of a Gardener shoot. " + conditionValueDescription)
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
 
@@ -351,14 +351,12 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 		for _, condition := range shoot.Status.Conditions {
 			dp := gauge.DataPoints().AppendEmpty()
 			dp.SetTimestamp(now)
-			dp.SetIntValue(1)
+			dp.SetIntValue(mapConditionStatus(condition.Status))
 			dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
 			dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
 			dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
 			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
 			dp.Attributes().PutStr("gardener.condition.type", string(condition.Type))
-			dp.Attributes().PutStr("gardener.condition.status", string(condition.Status))
-			dp.Attributes().PutStr("gardener.condition.reason", condition.Reason)
 			dp.Attributes().PutStr("gardener.operation.type", operationType)
 			dp.Attributes().PutBool("gardener.shoot.has_user_errors", shootHasUserErrors)
 			dp.Attributes().PutStr("gardener.shoot.is_compliant", isCompliant)

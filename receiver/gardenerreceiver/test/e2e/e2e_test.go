@@ -13,23 +13,18 @@ package e2e
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
+	promapi "github.com/prometheus/client_golang/api"
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
 )
 
 const (
@@ -43,12 +38,9 @@ const (
 	metricPoll    = 10 * time.Second
 )
 
-// pf holds the suite-wide port-forward to Prometheus and the local URL callers
-// query against.
-var pf struct {
-	baseURL  string
-	stopChan chan struct{}
-}
+// promAPI is the suite-wide Prometheus query client, pointed at the
+// LoadBalancer service's external IP.
+var promAPI promv1.API
 
 // testNamespace is the runtime-cluster namespace every component is deployed
 // into, overridable via TEST_NAMESPACE (the shell exports the same default).
@@ -73,176 +65,85 @@ var _ = BeforeSuite(func() {
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred(), "build clientset")
 
-	pod := readyPrometheusPod(ctx, clientset, namespace)
+	ip := prometheusLoadBalancerIP(ctx, clientset, namespace)
+	baseURL := fmt.Sprintf("http://%s:%s", ip, prometheusPort)
 
-	localPort, stopChan := startPortForward(restConfig, clientset, namespace, pod)
-	pf.baseURL = fmt.Sprintf("http://localhost:%d", localPort)
-	pf.stopChan = stopChan
+	client, err := promapi.NewClient(promapi.Config{Address: baseURL})
+	Expect(err).NotTo(HaveOccurred(), "build prometheus client")
+	promAPI = promv1.NewAPI(client)
 
-	GinkgoWriter.Printf("Port-forward to %s/%s established at %s\n", namespace, pod, pf.baseURL)
-})
-
-var _ = AfterSuite(func() {
-	if pf.stopChan != nil {
-		close(pf.stopChan)
-	}
+	GinkgoWriter.Printf("Prometheus exposed via LoadBalancer service %s/%s at %s\n", namespace, prometheusLBService, baseURL)
 })
 
 var _ = Describe("Gardener receiver metrics in Prometheus", func() {
 	// Scraped via the Prometheus exporter + ServiceMonitor: Prometheus-style
 	// name (dots become underscores).
-	It("exposes garden_shoot_info scraped via the Prometheus exporter", func() {
+	It("exposes garden_shoot_info scraped via the Prometheus exporter", func(ctx SpecContext) {
 		Eventually(func() (float64, error) {
-			return queryPrometheusCount(pf.baseURL, "count(garden_shoot_info)")
+			return queryPrometheus(ctx, "count(garden_shoot_info)")
 		}).WithTimeout(metricTimeout).WithPolling(metricPoll).
 			Should(BeNumerically(">", 0), "expected garden_shoot_info (scraped) to be present")
 	})
 
 	// Pushed via the second collector's otlphttp exporter into Prometheus' OTLP
 	// receiver with NoTranslation: raw OpenTelemetry name (dots preserved).
-	It("exposes garden.shoot.info pushed via OTLP (NoTranslation)", func() {
+	It("exposes garden.shoot.info pushed via OTLP (NoTranslation)", func(ctx SpecContext) {
 		Eventually(func() (float64, error) {
-			return queryPrometheusCount(pf.baseURL, `count({__name__="garden.shoot.info"})`)
+			return queryPrometheus(ctx, `count({__name__="garden.shoot.info"})`)
 		}).WithTimeout(metricTimeout).WithPolling(metricPoll).
 			Should(BeNumerically(">", 0), "expected garden.shoot.info (OTLP) to be present")
 	})
 })
 
-// readyPrometheusPod returns the name of a running, ready pod backing the
-// prometheus-operated service in the given namespace.
-func readyPrometheusPod(ctx context.Context, clientset kubernetes.Interface, namespace string) string {
-	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, prometheusService, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred(), "get %s service", prometheusService)
-
-	selector := metav1.FormatLabelSelector(&metav1.LabelSelector{MatchLabels: svc.Spec.Selector})
-
-	var podName string
+// prometheusLoadBalancerIP waits for the prometheus-lb LoadBalancer service
+// (created by deployComponents) to be assigned an external IP and returns it.
+func prometheusLoadBalancerIP(ctx context.Context, clientset kubernetes.Interface, namespace string) string {
+	var ip string
 	Eventually(func() (string, error) {
-		pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+		svc, err := clientset.CoreV1().Services(namespace).Get(ctx, prometheusLBService, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
-		for _, p := range pods.Items {
-			if isPodReady(&p) {
-				return p.Name, nil
+		for _, ingress := range svc.Status.LoadBalancer.Ingress {
+			if ingress.IP != "" {
+				return ingress.IP, nil
 			}
 		}
 		return "", nil
 	}).WithTimeout(metricTimeout).WithPolling(metricPoll).
-		ShouldNot(BeEmpty(), "expected a ready Prometheus pod behind %s", prometheusService)
+		ShouldNot(BeEmpty(), "expected an external IP on %s", prometheusLBService)
 
-	// Re-read once the Eventually has settled so we return the resolved name.
-	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
-	Expect(err).NotTo(HaveOccurred(), "list Prometheus pods")
-	for _, p := range pods.Items {
-		if isPodReady(&p) {
-			podName = p.Name
+	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, prometheusLBService, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred(), "re-read %s service", prometheusLBService)
+	for _, ingress := range svc.Status.LoadBalancer.Ingress {
+		if ingress.IP != "" {
+			ip = ingress.IP
 			break
 		}
 	}
-	Expect(podName).NotTo(BeEmpty())
-	return podName
+	Expect(ip).NotTo(BeEmpty())
+	return ip
 }
 
-func isPodReady(pod *corev1.Pod) bool {
-	if pod.Status.Phase != corev1.PodRunning {
-		return false
-	}
-	for _, c := range pod.Status.Conditions {
-		if c.Type == corev1.PodReady {
-			return c.Status == corev1.ConditionTrue
-		}
-	}
-	return false
-}
-
-// startPortForward establishes a port-forward to the given pod's Prometheus
-// port on a local ephemeral port and returns the resolved local port plus a
-// stop channel that tears the forward down when closed.
-func startPortForward(restConfig *restclient.Config, clientset kubernetes.Interface, namespace, pod string) (uint16, chan struct{}) {
-	roundTripper, upgrader, err := spdy.RoundTripperFor(restConfig)
-	Expect(err).NotTo(HaveOccurred(), "build spdy round tripper")
-
-	reqURL := clientset.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Namespace(namespace).
-		Name(pod).
-		SubResource("portforward").
-		URL()
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, reqURL)
-
-	stopChan := make(chan struct{})
-	readyChan := make(chan struct{})
-
-	// Local port "0" lets the kernel assign a free ephemeral port, which we
-	// resolve via GetPorts once forwarding is ready.
-	fw, err := portforward.New(dialer, []string{"0:" + prometheusPort}, stopChan, readyChan, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred(), "create port forwarder")
-
-	go func() {
-		defer GinkgoRecover()
-		if err := fw.ForwardPorts(); err != nil {
-			// ForwardPorts blocks until stopChan closes; an error here means the
-			// forward failed to run.
-			Fail(fmt.Sprintf("port-forward failed: %v", err))
-		}
-	}()
-
-	select {
-	case <-readyChan:
-	case <-time.After(metricTimeout):
-		close(stopChan)
-		Fail("timed out waiting for port-forward to become ready")
-	}
-
-	ports, err := fw.GetPorts()
-	Expect(err).NotTo(HaveOccurred(), "resolve forwarded ports")
-	Expect(ports).NotTo(BeEmpty())
-	return ports[0].Local, stopChan
-}
-
-// prometheusQueryResponse is the subset of the Prometheus /api/v1/query
-// response we need to extract a scalar count.
-type prometheusQueryResponse struct {
-	Data struct {
-		Result []struct {
-			Value [2]json.RawMessage `json:"value"`
-		} `json:"result"`
-	} `json:"data"`
-}
-
-// queryPrometheusCount runs an instant query and returns the numeric value of
-// the first result sample, or 0 when there are no results yet.
-func queryPrometheusCount(baseURL, query string) (float64, error) {
-	u := baseURL + "/api/v1/query?" + url.Values{"query": {query}}.Encode()
-
-	resp, err := http.Get(u)
+// queryPrometheus runs an instant query via the Prometheus API client and
+// returns the numeric value of the first result sample, or 0 when there are no
+// results yet. The queries used here wrap their selector in count(...), so the
+// result is a single-element vector.
+func queryPrometheus(ctx context.Context, query string) (float64, error) {
+	value, warnings, err := promAPI.Query(ctx, query, time.Time{})
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("prometheus query %q: %w", query, err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("prometheus query %q returned status %d", query, resp.StatusCode)
+	if len(warnings) > 0 {
+		GinkgoWriter.Printf("prometheus query %q returned warnings: %v\n", query, warnings)
 	}
 
-	var parsed prometheusQueryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return 0, fmt.Errorf("decode prometheus response: %w", err)
+	vector, ok := value.(model.Vector)
+	if !ok {
+		return 0, fmt.Errorf("prometheus query %q returned %s, want a vector", query, value.Type())
 	}
-	if len(parsed.Data.Result) == 0 {
+	if len(vector) == 0 {
 		return 0, nil
 	}
-
-	// value is [<unix timestamp float>, "<sample value string>"].
-	var raw string
-	if err := json.Unmarshal(parsed.Data.Result[0].Value[1], &raw); err != nil {
-		return 0, fmt.Errorf("parse sample value: %w", err)
-	}
-	value, err := strconv.ParseFloat(raw, 64)
-	if err != nil {
-		return 0, fmt.Errorf("parse sample value %q: %w", raw, err)
-	}
-	return value, nil
+	return float64(vector[0].Value), nil
 }

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -43,9 +45,21 @@ const (
 	// for the "gardener" Prometheus resource (it prefixes "prometheus-").
 	prometheusStatefulSet = "prometheus-gardener"
 
+	// prometheusLBService is the type: LoadBalancer service this suite creates to
+	// expose Prometheus to the host. Gardener's provider-local cloud-controller
+	// (deployed by `make kind-up`) assigns it an external IP from 172.18.255.224/27,
+	// which infra.sh's setup-loopback-devices makes routable from the host.
+	prometheusLBService = "prometheus-lb"
+
+	// prometheusCollectorName / otlpCollectorName are the OpenTelemetryCollector
+	// resource names; the otel operator names the generated workload
+	// "<name>-collector", giving the *Deployment constants below.
+	prometheusCollectorName = "gardener-prometheus"
+	otlpCollectorName       = "gardener-otlp"
+
 	// The otel operator names the workload for a collector "<name>-collector".
-	prometheusCollectorDeployment = "gardener-prometheus-collector"
-	otlpCollectorDeployment       = "gardener-otlp-collector"
+	prometheusCollectorDeployment = prometheusCollectorName + "-collector"
+	otlpCollectorDeployment       = otlpCollectorName + "-collector"
 
 	// otelCollectorResource is the plural resource name (for the REST path) of
 	// the OpenTelemetryCollector CRD; unlike the prometheus-operator types it
@@ -59,12 +73,13 @@ const (
 	resourceReadyPoll    = 5 * time.Second
 )
 
-// deployComponents replicates the bulk of the former shell
-// run_collector_e2e_test: it creates the test namespace, the Gardener API
-// kubeconfig secret, both collectors, the Prometheus instance with its RBAC and
-// ServiceMonitor, and the Shoot on the virtual garden, then waits for the
-// operator-generated workloads to become Ready. It returns the rest config for
-// the runtime cluster so the caller can set up the port-forward.
+// deployComponents deploys the full test stack into the runtime cluster: it
+// creates the test namespace, the Gardener API kubeconfig secret, both
+// collectors, the Prometheus instance with its RBAC and ServiceMonitor, and the
+// Shoot on the virtual garden, waits for the operator-generated workloads to
+// become Ready, and creates the LoadBalancer service that exposes Prometheus. It
+// returns the rest config for the runtime cluster so the caller can read the
+// service's external IP.
 func deployComponents(ctx context.Context) *restclient.Config {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	Expect(kubeconfig).NotTo(BeEmpty(), "KUBECONFIG must point at the runtime cluster kubeconfig")
@@ -127,7 +142,37 @@ func deployComponents(ctx context.Context) *restclient.Config {
 	By("waiting for the Prometheus instance to become Ready")
 	waitStatefulSetReady(ctx, clientset, namespace, prometheusStatefulSet)
 
+	By("exposing Prometheus via a LoadBalancer service")
+	createPrometheusLoadBalancer(ctx, clientset, namespace)
+
 	return restConfig
+}
+
+// createPrometheusLoadBalancer creates the type: LoadBalancer service that
+// exposes Prometheus to the host. It copies its selector from the
+// prometheus-operator-generated prometheus-operated service, which exists only
+// after the Prometheus instance has reconciled — hence it runs after
+// waitStatefulSetReady.
+func createPrometheusLoadBalancer(ctx context.Context, clientset kubernetes.Interface, namespace string) {
+	operated, err := clientset.CoreV1().Services(namespace).Get(ctx, prometheusService, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred(), "get %s service", prometheusService)
+
+	port, err := strconv.Atoi(prometheusPort)
+	Expect(err).NotTo(HaveOccurred(), "parse prometheus port")
+
+	create(ctx, clientset.CoreV1().Services(namespace), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: prometheusLBService, Namespace: namespace},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeLoadBalancer,
+			Selector: operated.Spec.Selector,
+			Ports: []corev1.ServicePort{{
+				Name:       "web",
+				Port:       int32(port),
+				TargetPort: intstr.FromInt(port),
+				Protocol:   corev1.ProtocolTCP,
+			}},
+		},
+	})
 }
 
 // namedObject is the subset of client-go's typed create signatures the built-in
@@ -186,7 +231,7 @@ func createCRD(ctx context.Context, client restclient.Interface, resource, names
 func prometheusCollector(namespace, image string) *otelv1beta1.OpenTelemetryCollector {
 	return &otelv1beta1.OpenTelemetryCollector{
 		TypeMeta:   metav1.TypeMeta{APIVersion: otelv1beta1.GroupVersion.String(), Kind: otelCollectorKind},
-		ObjectMeta: metav1.ObjectMeta{Name: "gardener-prometheus", Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: prometheusCollectorName, Namespace: namespace},
 		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
 			OpenTelemetryCommonFields: otelv1beta1.OpenTelemetryCommonFields{
 				Image:        image,
@@ -224,7 +269,7 @@ func otlpCollector(namespace, image string) *otelv1beta1.OpenTelemetryCollector 
 	metricsEndpoint := fmt.Sprintf("http://%s.%s.svc:%s/api/v1/otlp/v1/metrics", prometheusService, namespace, prometheusPort)
 	return &otelv1beta1.OpenTelemetryCollector{
 		TypeMeta:   metav1.TypeMeta{APIVersion: otelv1beta1.GroupVersion.String(), Kind: otelCollectorKind},
-		ObjectMeta: metav1.ObjectMeta{Name: "gardener-otlp", Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: otlpCollectorName, Namespace: namespace},
 		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
 			OpenTelemetryCommonFields: otelv1beta1.OpenTelemetryCommonFields{
 				Image:        image,
@@ -316,7 +361,7 @@ func prometheusRBAC(namespace string) (*corev1.ServiceAccount, *rbacv1.ClusterRo
 
 // serviceMonitorLabel is the label the Prometheus instance selects
 // ServiceMonitors by, and that the ServiceMonitor carries.
-var serviceMonitorLabel = map[string]string{"app": "gardener-prometheus-collector"}
+var serviceMonitorLabel = map[string]string{"app": prometheusCollectorDeployment}
 
 // prometheusInstance builds the Prometheus resource that scrapes via the
 // ServiceMonitor and accepts OTLP writes with NoTranslation.
@@ -344,13 +389,13 @@ func serviceMonitor(namespace string) *monitoringv1.ServiceMonitor {
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{APIVersion: monitoringv1.SchemeGroupVersion.String(), Kind: monitoringv1.ServiceMonitorsKind},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gardener-prometheus-collector",
+			Name:      prometheusCollectorDeployment,
 			Namespace: namespace,
 			Labels:    serviceMonitorLabel,
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Selector: metav1.LabelSelector{MatchLabels: map[string]string{
-				"app.kubernetes.io/name":                           "gardener-prometheus-collector",
+				"app.kubernetes.io/name":                           prometheusCollectorDeployment,
 				"operator.opentelemetry.io/collector-service-type": "base",
 			}},
 			Endpoints: []monitoringv1.Endpoint{{Port: "prometheus", Interval: monitoringv1.Duration("30s")}},

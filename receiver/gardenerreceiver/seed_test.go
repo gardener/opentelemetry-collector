@@ -58,26 +58,60 @@ func TestCollectSeedOperationStates(t *testing.T) {
 	sm := gardenerReceiver.initScopeMetrics(&md)
 	gardenerReceiver.collectSeedOperationStates(&sm, nowTimestamp())
 
-	require.Equal(t, 1, md.MetricCount())
-	require.Equal(t, 1, md.DataPointCount())
+	// collectSeedOperationStates emits 2 metrics (operation_states + operation_progress_percent),
+	// each with 6 data points (one per operation type: Create, Reconcile, Delete, Migrate, Restore, LiveMigrate).
+	require.Equal(t, 2, md.MetricCount())
+	require.Equal(t, 12, md.DataPointCount())
 
-	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.operation", m.Name())
+	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	statesMetric := scopeMetrics.At(0)
+	require.Equal(t, "garden.seed.operation_states", statesMetric.Name())
 
-	dp := m.Gauge().DataPoints().At(0)
-	require.Equal(t, int64(1), dp.IntValue())
+	statesDataPoints := statesMetric.Gauge().DataPoints()
+	requireOperationTypes(t, statesDataPoints)
+	reconcileDp := requireReconcileOperationDataPoint(t, statesDataPoints)
 
-	opType, ok := dp.Attributes().Get("gardener.operation.type")
-	require.True(t, ok)
-	require.Equal(t, "Reconcile", opType.Str())
+	name, ok := reconcileDp.Attributes().Get("gardener.seed.name")
+	require.True(t, ok, "missing name attribute")
+	require.Equal(t, "test-seed", name.Str())
 
-	opState, ok := dp.Attributes().Get("gardener.operation.state")
+	opState, ok := reconcileDp.Attributes().Get("gardener.operation.state")
 	require.True(t, ok)
 	require.Equal(t, "Succeeded", opState.Str())
 
-	progress, ok := dp.Attributes().Get("gardener.operation.progress")
-	require.True(t, ok)
-	require.Equal(t, int64(100), progress.Int())
+	require.Equal(t, int64(1), reconcileDp.IntValue(), "active operation should have value 1")
+
+	// Every non-active operation type should have value 0 and an empty state.
+	for i := 0; i < statesDataPoints.Len(); i++ {
+		dp := statesDataPoints.At(i)
+		opType, ok := dp.Attributes().Get("gardener.operation.type")
+		require.True(t, ok, "missing operation type")
+		if opType.Str() == "Reconcile" {
+			continue
+		}
+		require.Equal(t, int64(0), dp.IntValue(), "inactive operation should have value 0")
+		state, ok := dp.Attributes().Get("gardener.operation.state")
+		require.True(t, ok, "missing operation state")
+		require.Empty(t, state.Str(), "inactive operation should have empty state")
+	}
+
+	// Verify progress metric contains the right progress for the Reconcile operation.
+	progressMetric := scopeMetrics.At(1)
+	require.Equal(t, "garden.seed.operation_progress_percent", progressMetric.Name())
+	progressDataPoints := progressMetric.Gauge().DataPoints()
+	requireOperationTypes(t, progressDataPoints)
+	reconcileProgressDp := requireReconcileOperationDataPoint(t, progressDataPoints)
+	require.Equal(t, int64(100), reconcileProgressDp.IntValue(), "unexpected progress value")
+
+	for i := 0; i < progressDataPoints.Len(); i++ {
+		dp := progressDataPoints.At(i)
+		opType, ok := dp.Attributes().Get("gardener.operation.type")
+		require.True(t, ok, "missing operation type")
+		if opType.Str() == "Reconcile" {
+			continue
+		}
+		require.Equal(t, int64(0), dp.IntValue(), "inactive operation should have progress 0")
+	}
 }
 
 func TestCollectSeedOperationStates_NoLastOperation(t *testing.T) {
@@ -105,9 +139,33 @@ func TestCollectSeedOperationStates_NoLastOperation(t *testing.T) {
 	sm := gardenerReceiver.initScopeMetrics(&md)
 	gardenerReceiver.collectSeedOperationStates(&sm, nowTimestamp())
 
-	// No last operation: metric is emitted but with no data points
-	require.Equal(t, 1, md.MetricCount())
-	require.Equal(t, 0, md.DataPointCount())
+	// No last operation: both metrics are still emitted densely, one data point
+	// per operation type, all with value 0 and an empty state.
+	require.Equal(t, 2, md.MetricCount())
+	require.Equal(t, 12, md.DataPointCount())
+
+	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	statesMetric := scopeMetrics.At(0)
+	require.Equal(t, "garden.seed.operation_states", statesMetric.Name())
+
+	statesDataPoints := statesMetric.Gauge().DataPoints()
+	requireOperationTypes(t, statesDataPoints)
+	for i := 0; i < statesDataPoints.Len(); i++ {
+		dp := statesDataPoints.At(i)
+		require.Equal(t, int64(0), dp.IntValue(), "no active operation should have value 0")
+		state, ok := dp.Attributes().Get("gardener.operation.state")
+		require.True(t, ok, "missing operation state")
+		require.Empty(t, state.Str(), "no active operation should have empty state")
+	}
+
+	progressMetric := scopeMetrics.At(1)
+	require.Equal(t, "garden.seed.operation_progress_percent", progressMetric.Name())
+	progressDataPoints := progressMetric.Gauge().DataPoints()
+	requireOperationTypes(t, progressDataPoints)
+	for i := 0; i < progressDataPoints.Len(); i++ {
+		dp := progressDataPoints.At(i)
+		require.Equal(t, int64(0), dp.IntValue(), "no active operation should have progress 0")
+	}
 }
 
 func TestEmitSeeds_Empty(t *testing.T) {

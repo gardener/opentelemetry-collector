@@ -333,36 +333,45 @@ func TestEmitShootConditions(t *testing.T) {
 
 	require.Equal(t, 0, consumer.DataPointCount(), "unexpected data points")
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
-	require.Equal(t, 1, md.DataPointCount(), "unexpected data point count")
+	require.Equal(t, 4, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
 	require.Equal(t, "garden.shoot.condition", metrics.Name(), "unexpected metric name")
 
-	dp := metrics.Gauge().DataPoints().At(0)
-	attributes := dp.Attributes()
+	conditionStatuses := []string{"True", "False", "Progressing", "Unknown"}
+	for i, status := range conditionStatuses {
+		dp := metrics.Gauge().DataPoints().At(i)
+		attributes := dp.Attributes()
 
-	name, ok := attributes.Get("gardener.shoot.name")
-	require.True(t, ok, "missing name attribute")
-	require.Equal(t, "test-shoot", name.Str(), "unexpected name attribute")
+		name, ok := attributes.Get("gardener.shoot.name")
+		require.True(t, ok, "missing name attribute")
+		require.Equal(t, "test-shoot", name.Str(), "unexpected name attribute")
 
-	project, ok := attributes.Get("gardener.project.name")
-	require.True(t, ok, "missing project attribute")
-	require.Equal(t, "dev", project.Str(), "unexpected project attribute")
+		project, ok := attributes.Get("gardener.project.name")
+		require.True(t, ok, "missing project attribute")
+		require.Equal(t, "dev", project.Str(), "unexpected project attribute")
 
-	uid, ok := attributes.Get("gardener.shoot.uid")
-	require.True(t, ok, "missing uid attribute")
-	require.Equal(t, "shoot-uid-456", uid.Str(), "unexpected uid attribute")
+		uid, ok := attributes.Get("gardener.shoot.uid")
+		require.True(t, ok, "missing uid attribute")
+		require.Equal(t, "shoot-uid-456", uid.Str(), "unexpected uid attribute")
 
-	conditionType, ok := attributes.Get("gardener.condition.type")
-	require.True(t, ok, "missing condition.type attribute")
-	require.Equal(t, "TestCondition", conditionType.Str(), "unexpected condition.type attribute")
+		conditionType, ok := attributes.Get("gardener.condition.type")
+		require.True(t, ok, "missing condition.type attribute")
+		require.Equal(t, "TestCondition", conditionType.Str(), "unexpected condition.type attribute")
 
-	conditionStatus, ok := attributes.Get("gardener.condition.status")
-	require.True(t, ok, "missing condition.status attribute")
-	require.Equal(t, "True", conditionStatus.Str(), "unexpected condition.status attribute")
+		conditionStatus, ok := attributes.Get("gardener.condition.status")
+		require.True(t, ok, "missing condition.status attribute")
+		require.Equal(t, status, conditionStatus.Str(), "unexpected condition.status attribute")
 
-	conditionReason, ok := attributes.Get("gardener.condition.reason")
-	require.True(t, ok, "missing condition.reason attribute")
-	require.Equal(t, "TestReason", conditionReason.Str(), "unexpected condition.reason attribute")
+		conditionReason, ok := attributes.Get("gardener.condition.reason")
+		require.True(t, ok, "missing condition.reason attribute")
+		require.Equal(t, "TestReason", conditionReason.Str(), "unexpected condition.reason attribute")
+
+		if status == "True" {
+			require.Equal(t, int64(1), dp.IntValue(), "expected value 1 for active condition status")
+		} else {
+			require.Equal(t, int64(0), dp.IntValue(), "expected value 0 for inactive condition status")
+		}
+	}
 }
 
 func TestEmitShootStatus(t *testing.T) {

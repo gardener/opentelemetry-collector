@@ -1,7 +1,6 @@
 name: Gardener Receiver E2E Test
 
 on:
-  pull_request:
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:

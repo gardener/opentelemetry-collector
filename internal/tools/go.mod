@@ -7,6 +7,7 @@ tool (
 	github.com/daixiang0/gci
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/google/addlicense
+	github.com/onsi/ginkgo/v2/ginkgo
 	github.com/securego/gosec/v2/cmd/gosec
 	go.opentelemetry.io/collector/cmd/builder
 	go.opentelemetry.io/collector/cmd/mdatagen
@@ -92,6 +93,7 @@ require (
 	github.com/go-critic/go-critic v0.14.4 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/go-toolsmith/astequal v1.2.0 // indirect
@@ -120,6 +122,7 @@ require (
 	github.com/google/addlicense v1.2.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
+	github.com/google/pprof v0.0.0-20260709232956-b9395ee17fa0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -189,6 +192,7 @@ require (
 	github.com/nishanths/exhaustive v0.12.0 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
 	github.com/nunnatsa/ginkgolinter v0.24.0 // indirect
+	github.com/onsi/ginkgo/v2 v2.32.0 // indirect
 	github.com/openai/openai-go/v3 v3.42.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect

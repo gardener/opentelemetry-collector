@@ -1,0 +1,46 @@
+name: Gardener Receiver E2E Test
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      gardener_ref:
+        description: gardener/gardener git ref to test against
+        default: master
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  gardener-receiver-e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout collector
+        uses: actions/checkout@v7
+
+      - name: Checkout gardener
+        uses: actions/checkout@v7
+        with:
+          repository: gardener/gardener
+          ref: ${{ github.event.inputs.gardener_ref || 'master' }}
+          path: gardener
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26'
+
+      - name: Install dnsmasq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dnsmasq
+          sudo systemctl disable --now dnsmasq || true
+
+      - name: Run Gardener Recevier e2e test
+        env:
+          CI: ""
+          GARDENER_DIR: ${{ github.workspace }}/gardener
+        run: sudo -E env "PATH=$PATH" make -C receiver/gardenerreceiver test-e2e

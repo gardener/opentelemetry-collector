@@ -6,7 +6,7 @@ require (
 	github.com/gardener/gardener v1.146.3
 	github.com/gardener/gardener/pkg/apis v1.146.3
 	github.com/onsi/ginkgo/v2 v2.32.0
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/gomega v1.42.1
 	github.com/open-telemetry/opentelemetry-operator/apis v0.153.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.91.0
 	github.com/prometheus/client_golang v1.23.3-0.20260624042014-28914d017fba

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2026 SAP SE or an SAP affiliate company and Gardener contributors
+# Contributors to the Gardener project
 # SPDX-License-Identifier: Apache-2.0
 
 

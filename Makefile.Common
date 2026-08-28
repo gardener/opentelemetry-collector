@@ -17,7 +17,7 @@ GOSEC_OPT                   ?= -exclude-generated -track-suppressions -no-fail -
 TESTIFYLINT_OPT             ?= --enable-all --disable=float-compare,require-error,suite-subtest-run,encoded-compare
 GOTEST_PARALLEL_OPT         ?= -parallel 16 -p 4 -timeout 20m
 GOTEST_SHUFFLE_OPT          ?= -shuffle=on
-ADD_LICENSE_OPT             ?= -v -c "SAP SE or an SAP affiliate company and Gardener contributors" \
+ADD_LICENSE_OPT             ?= -v -c "Contributors to the Gardener project" \
                                 -l apache -s=only \
                                 -y "$(shell date +"%Y")" \
                                 -ignore "**/*.md" \

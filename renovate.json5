@@ -77,6 +77,15 @@
     {
       "groupName": "GitHub Actions",
       "matchManagers": ["github-actions"]
+    },
+    // Group the Go toolchain version across all files so the golang Docker base
+    // image and the go version in GitHub Actions workflows are bumped together
+    // in a single PR. Placed last so it overrides the Docker/Actions groups above
+    // for these specific deps (last matching rule wins for groupName).
+    {
+      "groupName": "Go version",
+      "matchDepNames": ["golang", "go"],
+      "matchManagers": ["dockerfile", "github-actions"]
     }
   ]
 }

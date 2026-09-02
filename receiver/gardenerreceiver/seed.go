@@ -89,7 +89,7 @@ func (r *gardenerReceiver) collectSeedConditions(sm *pmetric.ScopeMetrics, now p
 
 	metric := sm.Metrics().AppendEmpty()
 	metric.SetName("garden.seed.condition")
-	metric.SetDescription("Condition state of a Seed")
+	metric.SetDescription("Condition state of a Seed. " + conditionValueDescription)
 	metric.SetUnit("")
 
 	gauge := metric.SetEmptyGauge()
@@ -99,11 +99,9 @@ func (r *gardenerReceiver) collectSeedConditions(sm *pmetric.ScopeMetrics, now p
 		for _, condition := range seed.Status.Conditions {
 			dp := gauge.DataPoints().AppendEmpty()
 			dp.SetTimestamp(now)
-			dp.SetIntValue(1)
+			dp.SetIntValue(mapConditionStatus(condition.Status))
 			dp.Attributes().PutStr("gardener.seed.name", seed.Name)
 			dp.Attributes().PutStr("gardener.condition.type", string(condition.Type))
-			dp.Attributes().PutStr("gardener.condition.status", string(condition.Status))
-			dp.Attributes().PutStr("gardener.condition.reason", condition.Reason)
 		}
 	}
 }

@@ -356,13 +356,13 @@ func TestEmitShootConditions(t *testing.T) {
 	require.True(t, ok, "missing condition.type attribute")
 	require.Equal(t, "TestCondition", conditionType.Str(), "unexpected condition.type attribute")
 
-	conditionStatus, ok := attributes.Get("gardener.condition.status")
-	require.True(t, ok, "missing condition.status attribute")
-	require.Equal(t, "True", conditionStatus.Str(), "unexpected condition.status attribute")
+	_, ok = attributes.Get("gardener.condition.status")
+	require.False(t, ok, "unexpected condition.status attribute")
 
-	conditionReason, ok := attributes.Get("gardener.condition.reason")
-	require.True(t, ok, "missing condition.reason attribute")
-	require.Equal(t, "TestReason", conditionReason.Str(), "unexpected condition.reason attribute")
+	_, ok = attributes.Get("gardener.condition.reason")
+	require.False(t, ok, "unexpected condition.reason attribute")
+
+	require.Equal(t, int64(1), dp.IntValue(), "expected value 1 for ConditionTrue status")
 }
 
 func TestEmitShootStatus(t *testing.T) {

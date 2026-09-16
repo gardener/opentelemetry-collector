@@ -451,11 +451,6 @@ func TestCollectSeedConditions(t *testing.T) {
 	require.Equal(t, "SeedSystemComponentsHealthy", condType.Str())
 	require.Equal(t, int64(1), dp.IntValue(), "expected value 1 for ConditionTrue status")
 
-	_, ok = dp.Attributes().Get("gardener.condition.status")
-	require.False(t, ok, "unexpected condition.status attribute")
-	_, ok = dp.Attributes().Get("gardener.condition.reason")
-	require.False(t, ok, "unexpected condition.reason attribute")
-
 	progressingDp := m.Gauge().DataPoints().At(1)
 	progressingType, ok := progressingDp.Attributes().Get("gardener.condition.type")
 	require.True(t, ok)

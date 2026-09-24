@@ -22,9 +22,9 @@ require (
 	go.opentelemetry.io/collector/receiver/receivertest v0.161.0
 	go.opentelemetry.io/otel v1.46.0
 	go.uber.org/zap v1.28.0
-	k8s.io/api v0.37.0
-	k8s.io/apimachinery v0.37.0
-	k8s.io/client-go v0.37.0
+	k8s.io/api v0.37.1
+	k8s.io/apimachinery v0.37.1
+	k8s.io/client-go v0.37.1
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 )
 

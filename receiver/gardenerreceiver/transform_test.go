@@ -29,6 +29,7 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 			UID:       "abc-123",
 			Labels: map[string]string{
 				"shoot.gardener.cloud/status": "healthy",
+				"business-critical":           "true",
 				"unused":                      "drop-me",
 			},
 			CreationTimestamp: metav1.Now(),
@@ -121,7 +122,7 @@ func TestTransformShoot_RetainsUsedFields(t *testing.T) {
 
 	assert.Equal(t, "my-shoot", s.Name)
 	assert.Equal(t, "garden-dev", s.Namespace)
-	assert.Equal(t, map[string]string{"shoot.gardener.cloud/status": "healthy"}, s.Labels)
+	assert.Equal(t, map[string]string{"shoot.gardener.cloud/status": "healthy", "business-critical": "true"}, s.Labels)
 	assert.NotEmpty(t, s.CreationTimestamp)
 	assert.Equal(t, "aws", s.Spec.Provider.Type)
 	assert.Equal(t, "eu-west-1", s.Spec.Region)

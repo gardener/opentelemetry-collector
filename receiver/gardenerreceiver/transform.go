@@ -16,6 +16,8 @@ import (
 const (
 	projectAnnotationCostObject     = "billing.gardener.cloud/costObject"
 	projectAnnotationCostObjectType = "billing.gardener.cloud/costObjectType"
+
+	shootLabelBusinessCritical = "business-critical"
 )
 
 // The transform functions below are registered via SharedInformerFactory's
@@ -70,7 +72,7 @@ func transformShoot(obj any) (any, error) {
 		TypeMeta:   src.TypeMeta,
 		ObjectMeta: retainObjectMeta(src.ObjectMeta),
 	}
-	dst.Labels = retainStringMapKeys(src.Labels, corev1beta1constants.ShootStatus)
+	dst.Labels = retainStringMapKeys(src.Labels, corev1beta1constants.ShootStatus, shootLabelBusinessCritical)
 
 	dst.Spec = corev1beta1.ShootSpec{
 		ControlPlane:           src.Spec.ControlPlane,

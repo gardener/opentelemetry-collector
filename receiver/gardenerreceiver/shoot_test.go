@@ -69,6 +69,9 @@ func TestEmitShoots(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-shoot",
 			Namespace: "garden-dev",
+			Labels: map[string]string{
+				"business-critical": "true",
+			},
 		},
 		Spec: corev1beta1.ShootSpec{
 			Provider: corev1beta1.Provider{
@@ -160,6 +163,10 @@ func TestEmitShoots(t *testing.T) {
 	id, ok := attributes.Get("gardener.shoot.technical_id")
 	require.True(t, ok, "missing gardener.shoot.technical_id attribute")
 	require.Equal(t, "shoot--dev--test-shoot", id.Str(), "unexpected gardener.shoot.technical_id attribute")
+
+	businessCritical, ok := attributes.Get("gardener.shoot.business_critical")
+	require.True(t, ok, "missing gardener.shoot.business_critical attribute")
+	require.True(t, businessCritical.Bool(), "unexpected gardener.shoot.business_critical attribute")
 }
 
 func TestEmitShootOperations(t *testing.T) {

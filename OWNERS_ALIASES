@@ -10,6 +10,7 @@ aliases:
   - chrkl
   - vicwicker
   - istvanballok
+  - iypetrov
   opentelemetry-collector-approvers:
   - Bobi-Wan
   - dnaeon
@@ -19,3 +20,4 @@ aliases:
   - chrkl
   - vicwicker
   - istvanballok
+  - iypetrov

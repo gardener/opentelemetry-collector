@@ -204,6 +204,7 @@ func (r *gardenerReceiver) collectShootInfoMetrics(sm *pmetric.ScopeMetrics, now
 		dp.Attributes().PutStr("gardener.shoot.purpose", purpose)
 		dp.Attributes().PutBool("gardener.shoot.workerless", shoot.Spec.Provider.Workers == nil)
 		dp.Attributes().PutBool("gardener.shoot.is_seed", isSeed)
+		dp.Attributes().PutBool("gardener.shoot.business_critical", shoot.Labels[shootLabelBusinessCritical] == "true")
 		dp.Attributes().PutStr("gardener.shoot.failure_tolerance", failureTol)
 		dp.Attributes().PutStr("gardener.cost_object", pi.costObject)
 		dp.Attributes().PutStr("gardener.cost_object_type", pi.costObjectType)

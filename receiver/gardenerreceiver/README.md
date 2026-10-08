@@ -72,30 +72,32 @@ unique identifier for a shoot is `gardener.shoot.uid`.
 
 ### Per-object metrics
 
-| Resource group | Metric name                               | Notes                                                                                                                         |
-|----------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| Shoots         | `garden.shoot.info`                       | Static metadata as attributes (provider, region, k8s version, purpose, failure tolerance, billing/cost-object attributes, …). |
-| Shoots         | `garden.shoot.hibernated`                 | `1` if the shoot is hibernated, `0` otherwise.                                                                                |
-| Shoots         | `garden.shoot.creation_timestamp`         | Unix timestamp of `metadata.creationTimestamp`.                                                                               |
-| Shoots         | `garden.shoot.condition`                  | Value per condition type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; condition type is an attribute.  |
-| Shoots         | `garden.shoot.status`                     | State metric over Shoot status: one data point per status with `1` for the current status and `0` for the others.             |
-| Shoots         | `garden.shoot.operation_states`           | One data point per supported operation type; current operation is `1`, all other operation types are `0`.                     |
-| Shoots         | `garden.shoot.operation_progress_percent` | Progress of the current operation in percent; non-current operation types are emitted with `0`.                               |
-| Shoots         | `garden.shoot.operations_total`           | Current last-operation counts grouped by operation type/state, provider, seed, Kubernetes version, and region.                |
-| Shoots         | `garden.shoot.worker.min` / `.worker.max` | Per-worker-pool size bounds.                                                                                                  |
-| Shoots         | `garden.shoot.nodes.min` / `.nodes.max`   | Aggregate node-count bounds across all worker pools.                                                                          |
-| Shoots         | `garden.shoot.node.info`                  | Per-worker-pool node metadata (machine type, image, architecture, CRI, container runtimes, …).                                |
-| Seeds          | `garden.seed.info`                        | Static seed metadata.                                                                                                         |
-| Seeds          | `garden.seed.capacity`                    | Capacity reported by the seed (e.g. shoots).                                                                                  |
-| Seeds          | `garden.seed.usage`                       | Allocatable resources reported by the seed.                                                                                   |
-| Seeds          | `garden.seed.condition`                   | Value per condition type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; condition type is an attribute.  |
-| Seeds          | `garden.seed.operation`                   | Current operation type/state of the seed (with `gardener.operation.progress`).                                                |
-| Projects       | `garden.project.info`                     | Static project metadata.                                                                                                      |
-| Projects       | `garden.users`                            | Total project member count grouped by user kind.                                                                              |
-| ManagedSeeds   | `garden.managed_seed.info`                | Static managed seed metadata.                                                                                                 |
-| Gardenlets     | `garden.gardenlet.condition`              | Value per condition type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; condition type is an attribute.  |
-| Gardenlets     | `garden.gardenlet.generation`             | `metadata.generation` of the gardenlet.                                                                                       |
-| Gardenlets     | `garden.gardenlet.observed_generation`    | `status.observedGeneration` of the gardenlet.                                                                                 |
+| Resource group | Metric name                               | Notes                                                                                                                          |
+|----------------|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| Shoots         | `garden.shoot.info`                       | Static metadata as attributes (provider, region, k8s version, purpose, failure tolerance, billing/cost-object attributes, …).  |
+| Shoots         | `garden.shoot.hibernated`                 | `1` if the shoot is hibernated, `0` otherwise.                                                                                 |
+| Shoots         | `garden.shoot.creation_timestamp`         | Unix timestamp of `metadata.creationTimestamp`.                                                                                |
+| Shoots         | `garden.shoot.condition`                  | Value per condition type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; condition type is an attribute.   |
+| Shoots         | `garden.shoot.constraint`                 | Value per constraint type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; constraint type is an attribute. |
+| Shoots         | `garden.shoot.status`                     | State metric over Shoot status: one data point per status with `1` for the current status and `0` for the others.              |
+| Shoots         | `garden.shoot.operation_states`           | One data point per supported operation type; current operation is `1`, all other operation types are `0`.                      |
+| Shoots         | `garden.shoot.operation_progress_percent` | Progress of the current operation in percent; non-current operation types are emitted with `0`.                                |
+| Shoots         | `garden.shoot.operations_total`           | Current last-operation counts grouped by operation type/state, provider, seed, Kubernetes version, and region.                 |
+| Shoots         | `garden.shoot.worker.min` / `.worker.max` | Per-worker-pool size bounds.                                                                                                   |
+| Shoots         | `garden.shoot.nodes.min` / `.nodes.max`   | Aggregate node-count bounds across all worker pools.                                                                           |
+| Shoots         | `garden.shoot.node.info`                  | Per-worker-pool node metadata (machine type, image, architecture, CRI, container runtimes, …).                                 |
+| Seeds          | `garden.seed.info`                        | Static seed metadata.                                                                                                          |
+| Seeds          | `garden.seed.capacity`                    | Capacity reported by the seed (e.g. shoots).                                                                                   |
+| Seeds          | `garden.seed.usage`                       | Allocatable resources reported by the seed.                                                                                    |
+| Seeds          | `garden.seed.condition`                   | Value per condition type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; condition type is an attribute.   |
+| Seeds          | `garden.seed.constraint`                  | Value per constraint type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; constraint type is an attribute. |
+| Seeds          | `garden.seed.operation`                   | Current operation type/state of the seed (with `gardener.operation.progress`).                                                 |
+| Projects       | `garden.project.info`                     | Static project metadata.                                                                                                       |
+| Projects       | `garden.users`                            | Total project member count grouped by user kind.                                                                               |
+| ManagedSeeds   | `garden.managed_seed.info`                | Static managed seed metadata.                                                                                                  |
+| Gardenlets     | `garden.gardenlet.condition`              | Value per condition type encodes status: `-1`=Unknown, `0`=False, `1`=True, `2`=Progressing; condition type is an attribute.   |
+| Gardenlets     | `garden.gardenlet.generation`             | `metadata.generation` of the gardenlet.                                                                                        |
+| Gardenlets     | `garden.gardenlet.observed_generation`    | `status.observedGeneration` of the gardenlet.                                                                                  |
 
 ### Landscape-level shoot aggregations
 

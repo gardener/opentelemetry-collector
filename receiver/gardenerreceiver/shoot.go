@@ -364,6 +364,37 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 	}
 }
 
+func (r *gardenerReceiver) collectShootConstraints(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	shootList := r.shootInformer.GetStore().List()
+	if len(shootList) == 0 {
+		r.logger.Debug("No shoots found")
+		return
+	}
+
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.shoot.constraint")
+	metric.SetDescription("Constraint state of a Gardener shoot. " + conditionValueDescription)
+	metric.SetUnit("")
+	gauge := metric.SetEmptyGauge()
+
+	for _, item := range shootList {
+		shoot := item.(*corev1beta1.Shoot)
+		for _, constraint := range shoot.Status.Constraints {
+			if constraint.Type == "" {
+				continue
+			}
+			dp := gauge.DataPoints().AppendEmpty()
+			dp.SetTimestamp(now)
+			dp.SetIntValue(mapConditionStatus(constraint.Status))
+			dp.Attributes().PutStr("gardener.shoot.name", shoot.Name)
+			dp.Attributes().PutStr("gardener.project.name", getProject(shoot))
+			dp.Attributes().PutStr("gardener.shoot.uid", string(shoot.UID))
+			dp.Attributes().PutStr("gardener.shoot.technical_id", shoot.Status.TechnicalID)
+			dp.Attributes().PutStr("gardener.constraint.type", string(constraint.Type))
+		}
+	}
+}
+
 func (r *gardenerReceiver) collectShootStatusMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	shootList := r.shootInformer.GetStore().List()
 	if len(shootList) == 0 {

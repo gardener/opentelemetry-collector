@@ -9,7 +9,7 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/open-telemetry/opentelemetry-operator/apis v0.160.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.1
-	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/common v0.72.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/collector/component v1.68.0

@@ -130,7 +130,7 @@ func prometheusLoadBalancerIP(ctx context.Context, clientset kubernetes.Interfac
 // results yet. The queries used here wrap their selector in count(...), so the
 // result is a single-element vector.
 func queryPrometheus(ctx context.Context, query string) (float64, error) {
-	value, warnings, err := promAPI.Query(ctx, query, time.Time{})
+	value, warnings, _, err := promAPI.Query(ctx, query, time.Time{})
 	if err != nil {
 		return 0, fmt.Errorf("prometheus query %q: %w", query, err)
 	}

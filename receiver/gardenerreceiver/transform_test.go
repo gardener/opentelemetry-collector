@@ -410,6 +410,7 @@ func TestTransformSeed_RetainsUsedFields(t *testing.T) {
 			Capacity:          corev1.ResourceList{"shoots": resource.MustParse("100")},
 			Allocatable:       corev1.ResourceList{"shoots": resource.MustParse("50")},
 			Conditions:        []corev1beta1.Condition{{Type: "GardenletReady", Status: "True"}},
+			Constraints:       []corev1beta1.Condition{{Type: "ManagedResourcesHonored", Status: "False"}},
 			LastOperation: &corev1beta1.LastOperation{
 				Type:  corev1beta1.LastOperationTypeReconcile,
 				State: corev1beta1.LastOperationStateSucceeded,
@@ -432,6 +433,7 @@ func TestTransformSeed_RetainsUsedFields(t *testing.T) {
 	assert.NotEmpty(t, s.Status.Capacity)
 	assert.NotEmpty(t, s.Status.Allocatable)
 	assert.Len(t, s.Status.Conditions, 1)
+	assert.Len(t, s.Status.Constraints, 1)
 	assert.NotNil(t, s.Status.LastOperation)
 }
 

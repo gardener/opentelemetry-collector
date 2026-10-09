@@ -106,6 +106,36 @@ func (r *gardenerReceiver) collectSeedConditions(sm *pmetric.ScopeMetrics, now p
 	}
 }
 
+func (r *gardenerReceiver) collectSeedConstraints(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	seedList := r.seedInformer.GetStore().List()
+
+	if len(seedList) == 0 {
+		r.logger.Debug("No seeds found for constraint metrics")
+		return
+	}
+
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.seed.constraint")
+	metric.SetDescription("Constraint state of a Seed. " + conditionValueDescription)
+	metric.SetUnit("")
+
+	gauge := metric.SetEmptyGauge()
+
+	for _, seedListItem := range seedList {
+		seed := seedListItem.(*corev1beta1.Seed)
+		for _, constraint := range seed.Status.Constraints {
+			if constraint.Type == "" {
+				continue
+			}
+			dp := gauge.DataPoints().AppendEmpty()
+			dp.SetTimestamp(now)
+			dp.SetIntValue(mapConditionStatus(constraint.Status))
+			dp.Attributes().PutStr("gardener.seed.name", seed.Name)
+			dp.Attributes().PutStr("gardener.constraint.type", string(constraint.Type))
+		}
+	}
+}
+
 func (r *gardenerReceiver) collectSeedAllocatableMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	seedList := r.seedInformer.GetStore().List()
 

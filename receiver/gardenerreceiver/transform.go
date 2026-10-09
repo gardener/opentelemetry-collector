@@ -205,6 +205,7 @@ func transformSeed(obj any) (any, error) {
 			Allocatable:       src.Status.Allocatable,
 			Capacity:          src.Status.Capacity,
 			Conditions:        src.Status.Conditions,
+			Constraints:       src.Status.Constraints,
 			KubernetesVersion: src.Status.KubernetesVersion,
 			LastOperation:     src.Status.LastOperation,
 		},

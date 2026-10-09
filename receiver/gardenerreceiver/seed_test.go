@@ -458,6 +458,61 @@ func TestCollectSeedConditions(t *testing.T) {
 	require.Equal(t, int64(2), progressingDp.IntValue(), "expected value 2 for ConditionProgressing status")
 }
 
+func TestCollectSeedConstraints(t *testing.T) {
+	fakeClient := gardenerfake.NewSimpleClientset()
+	seed := &corev1beta1.Seed{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
+		Spec: corev1beta1.SeedSpec{
+			Provider: corev1beta1.SeedProvider{
+				Type:   "test-provider",
+				Region: "test-region",
+			},
+		},
+		Status: corev1beta1.SeedStatus{
+			Constraints: []corev1beta1.Condition{
+				{
+					Type:   "ManagedResourcesHonored",
+					Status: corev1beta1.ConditionFalse,
+					Reason: "ManagedResourcesIgnored",
+				},
+				{
+					Status: corev1beta1.ConditionUnknown,
+				},
+			},
+		},
+	}
+
+	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
+	informer := factory.Core().V1beta1().Seeds().Informer()
+	require.NoError(t, informer.GetStore().Add(seed))
+
+	r := &gardenerReceiver{
+		config:       &Config{Kubeconfig: "/tmp/fake", Resources: []string{"seeds"}},
+		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
+		consumer:     new(consumertest.MetricsSink),
+		seedInformer: informer,
+		logger:       zap.NewNop(),
+	}
+
+	md := pmetric.NewMetrics()
+	sm := r.initScopeMetrics(&md)
+	r.collectSeedConstraints(&sm, nowTimestamp())
+
+	require.Equal(t, 1, md.MetricCount())
+	require.Equal(t, 1, md.DataPointCount())
+	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
+	require.Equal(t, "garden.seed.constraint", m.Name())
+
+	dp := m.Gauge().DataPoints().At(0)
+	seedName, ok := dp.Attributes().Get("gardener.seed.name")
+	require.True(t, ok)
+	require.Equal(t, "test-seed", seedName.Str())
+	consType, ok := dp.Attributes().Get("gardener.constraint.type")
+	require.True(t, ok)
+	require.Equal(t, "ManagedResourcesHonored", consType.Str())
+	require.Equal(t, int64(0), dp.IntValue(), "expected value 0 for ConditionFalse status")
+}
+
 func TestCollectSeedAllocatableMetrics(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{

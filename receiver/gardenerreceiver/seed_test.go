@@ -513,6 +513,34 @@ func TestCollectSeedConstraints(t *testing.T) {
 	require.Equal(t, int64(0), dp.IntValue(), "expected value 0 for ConditionFalse status")
 }
 
+// TestCollectSeedConstraintsNoConstraints verifies that no metric is emitted
+// when the seeds have no constraints. Prometheus' OTLP receiver errors the
+// whole write request when a metric has no data points, so it must be omitted.
+func TestCollectSeedConstraintsNoConstraints(t *testing.T) {
+	fakeClient := gardenerfake.NewSimpleClientset()
+	seed := &corev1beta1.Seed{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
+	}
+
+	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
+	informer := factory.Core().V1beta1().Seeds().Informer()
+	require.NoError(t, informer.GetStore().Add(seed))
+
+	r := &gardenerReceiver{
+		config:       &Config{Kubeconfig: "/tmp/fake", Resources: []string{"seeds"}},
+		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
+		consumer:     new(consumertest.MetricsSink),
+		seedInformer: informer,
+		logger:       zap.NewNop(),
+	}
+
+	md := pmetric.NewMetrics()
+	sm := r.initScopeMetrics(&md)
+	r.collectSeedConstraints(&sm, nowTimestamp())
+
+	require.Equal(t, 0, md.MetricCount(), "expected no metric when there are no constraints")
+}
+
 func TestCollectSeedAllocatableMetrics(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{

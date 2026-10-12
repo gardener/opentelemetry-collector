@@ -372,7 +372,12 @@ func (r *gardenerReceiver) collectShootConstraints(sm *pmetric.ScopeMetrics, now
 		return
 	}
 
-	gauge := pmetric.NewGauge()
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.shoot.constraint")
+	metric.SetDescription("Constraint state of a Gardener shoot. " + conditionValueDescription)
+	metric.SetUnit("")
+	gauge := metric.SetEmptyGauge()
+
 	for _, item := range shootList {
 		shoot := item.(*corev1beta1.Shoot)
 		for _, constraint := range shoot.Status.Constraints {
@@ -389,20 +394,6 @@ func (r *gardenerReceiver) collectShootConstraints(sm *pmetric.ScopeMetrics, now
 			dp.Attributes().PutStr("gardener.constraint.type", string(constraint.Type))
 		}
 	}
-
-	// Skip emitting the metric when no shoot reported a constraint: Prometheus'
-	// OTLP receiver errors the whole write request ("empty data points ... is
-	// dropped") when a metric has no data points, discarding every other metric
-	// in the batch along with it.
-	if gauge.DataPoints().Len() == 0 {
-		return
-	}
-
-	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.constraint")
-	metric.SetDescription("Constraint state of a Gardener shoot. " + conditionValueDescription)
-	metric.SetUnit("")
-	gauge.MoveTo(metric.SetEmptyGauge())
 }
 
 func (r *gardenerReceiver) collectShootStatusMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {

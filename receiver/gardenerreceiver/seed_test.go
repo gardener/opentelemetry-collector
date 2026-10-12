@@ -513,9 +513,10 @@ func TestCollectSeedConstraints(t *testing.T) {
 	require.Equal(t, int64(0), dp.IntValue(), "expected value 0 for ConditionFalse status")
 }
 
-// TestCollectSeedConstraintsNoConstraints verifies that no metric is emitted
-// when the seeds have no constraints. Prometheus' OTLP receiver errors the
-// whole write request when a metric has no data points, so it must be omitted.
+// TestCollectSeedConstraintsNoConstraints verifies that a seed with no
+// constraints produces an empty metric that dropEmptyMetrics prunes, so nothing
+// empty leaves the receiver. Prometheus' OTLP receiver errors the whole write
+// request when a metric has no data points.
 func TestCollectSeedConstraintsNoConstraints(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
@@ -537,8 +538,9 @@ func TestCollectSeedConstraintsNoConstraints(t *testing.T) {
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectSeedConstraints(&sm, nowTimestamp())
+	dropEmptyMetrics(sm)
 
-	require.Equal(t, 0, md.MetricCount(), "expected no metric when there are no constraints")
+	require.Equal(t, 0, md.MetricCount(), "expected the empty constraint metric to be pruned")
 }
 
 func TestCollectSeedAllocatableMetrics(t *testing.T) {

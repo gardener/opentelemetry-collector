@@ -308,6 +308,14 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 		r.collectGardenletMetrics(&sm, now)
 	}
 
+	// Drop any metric left with zero data points: Prometheus' OTLP receiver
+	// errors the whole write request ("empty data points ... is dropped") when a
+	// metric has no data points, discarding every other metric in the batch.
+	// Collectors append their metric before knowing whether any data point will
+	// follow (e.g. a seed with an empty status, or a workerless shoot), so prune
+	// here once, after everything has been collected.
+	dropEmptyMetrics(sm)
+
 	ctx = r.obsrecv.StartMetricsOp(ctx)
 	dataPointCount := md.DataPointCount()
 
@@ -332,4 +340,32 @@ func (r *gardenerReceiver) initScopeMetrics(md *pmetric.Metrics) pmetric.ScopeMe
 
 func nowTimestamp() pcommon.Timestamp {
 	return pcommon.NewTimestampFromTime(time.Now())
+}
+
+// dropEmptyMetrics removes metrics that carry no data points. Such metrics
+// cause Prometheus' OTLP receiver to reject the entire write request, so they
+// must never leave the receiver.
+func dropEmptyMetrics(sm pmetric.ScopeMetrics) {
+	sm.Metrics().RemoveIf(func(m pmetric.Metric) bool {
+		return metricDataPointCount(m) == 0
+	})
+}
+
+// metricDataPointCount returns the number of data points in a metric across all
+// supported metric types.
+func metricDataPointCount(m pmetric.Metric) int {
+	switch m.Type() {
+	case pmetric.MetricTypeGauge:
+		return m.Gauge().DataPoints().Len()
+	case pmetric.MetricTypeSum:
+		return m.Sum().DataPoints().Len()
+	case pmetric.MetricTypeHistogram:
+		return m.Histogram().DataPoints().Len()
+	case pmetric.MetricTypeExponentialHistogram:
+		return m.ExponentialHistogram().DataPoints().Len()
+	case pmetric.MetricTypeSummary:
+		return m.Summary().DataPoints().Len()
+	default:
+		return 0
+	}
 }

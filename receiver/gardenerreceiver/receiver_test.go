@@ -272,3 +272,28 @@ func TestSendMetrics_ResourceGating(t *testing.T) {
 		})
 	}
 }
+
+func TestDropEmptyMetrics(t *testing.T) {
+	md := pmetric.NewMetrics()
+	sm := md.ResourceMetrics().AppendEmpty().ScopeMetrics().AppendEmpty()
+
+	// A gauge with a data point survives.
+	withData := sm.Metrics().AppendEmpty()
+	withData.SetName("garden.with_data")
+	withData.SetEmptyGauge().DataPoints().AppendEmpty().SetIntValue(1)
+
+	// An empty gauge is pruned.
+	empty := sm.Metrics().AppendEmpty()
+	empty.SetName("garden.empty")
+	empty.SetEmptyGauge()
+
+	// An empty sum is pruned too (type-aware counting).
+	emptySum := sm.Metrics().AppendEmpty()
+	emptySum.SetName("garden.empty_sum")
+	emptySum.SetEmptySum()
+
+	dropEmptyMetrics(sm)
+
+	require.Equal(t, 1, sm.Metrics().Len(), "expected only the non-empty metric to remain")
+	require.Equal(t, "garden.with_data", sm.Metrics().At(0).Name())
+}

@@ -471,9 +471,10 @@ func TestEmitShootConstraints(t *testing.T) {
 	require.Equal(t, int64(0), falseDp.IntValue(), "expected value 0 for ConditionFalse status")
 }
 
-// TestEmitShootConstraintsNoConstraints verifies that no metric is emitted when
-// the shoots have no constraints. Prometheus' OTLP receiver errors the whole
-// write request when a metric has no data points, so it must be omitted.
+// TestEmitShootConstraintsNoConstraints verifies that a shoot with no
+// constraints produces an empty metric that dropEmptyMetrics prunes, so nothing
+// empty leaves the receiver. Prometheus' OTLP receiver errors the whole write
+// request when a metric has no data points.
 func TestEmitShootConstraintsNoConstraints(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	shoot := &corev1beta1.Shoot{
@@ -502,8 +503,9 @@ func TestEmitShootConstraintsNoConstraints(t *testing.T) {
 	md := pmetric.NewMetrics()
 	sm := gardenerReceiver.initScopeMetrics(&md)
 	gardenerReceiver.collectShootConstraints(&sm, nowTimestamp())
+	dropEmptyMetrics(sm)
 
-	require.Equal(t, 0, md.MetricCount(), "expected no metric when there are no constraints")
+	require.Equal(t, 0, md.MetricCount(), "expected the empty constraint metric to be pruned")
 }
 
 func TestEmitShootStatus(t *testing.T) {

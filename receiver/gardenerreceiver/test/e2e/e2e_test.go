@@ -86,8 +86,8 @@ var _ = Describe("Gardener receiver metrics in Prometheus", func() {
 	})
 
 	// Pushed via the second collector's otlphttp exporter into Prometheus' OTLP
-	// receiver with NoTranslation: raw OpenTelemetry name (dots preserved).
-	It("exposes garden.shoot.info pushed via OTLP (NoTranslation)", func(ctx SpecContext) {
+	// receiver while preserving the OpenTelemetry metric name.
+	It("exposes garden.shoot.info pushed via OTLP", func(ctx SpecContext) {
 		Eventually(func() (float64, error) {
 			return queryPrometheus(ctx, `count({__name__="garden.shoot.info"})`)
 		}).WithTimeout(metricTimeout).WithPolling(metricPoll).

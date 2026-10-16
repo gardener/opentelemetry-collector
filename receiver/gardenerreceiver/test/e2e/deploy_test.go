@@ -262,10 +262,9 @@ func prometheusCollector(namespace, image string) *otelv1beta1.OpenTelemetryColl
 }
 
 // otlpCollector builds the collector that pushes gardener metrics into
-// Prometheus' OTLP receiver with NoTranslation (raw OpenTelemetry names).
+// Prometheus' OTLP receiver while preserving UTF-8 metric names.
 func otlpCollector(namespace, image string) *otelv1beta1.OpenTelemetryCollector {
-	// The Prometheus OTLP receiver lives at /api/v1/otlp; the otlphttp exporter
-	// appends /v1/metrics to reach /api/v1/otlp/v1/metrics.
+	// metrics_endpoint is the complete signal-specific endpoint.
 	metricsEndpoint := fmt.Sprintf("http://%s.%s.svc:%s/api/v1/otlp/v1/metrics", prometheusService, namespace, prometheusPort)
 	return &otelv1beta1.OpenTelemetryCollector{
 		TypeMeta:   metav1.TypeMeta{APIVersion: otelv1beta1.GroupVersion.String(), Kind: otelCollectorKind},
@@ -364,7 +363,7 @@ func prometheusRBAC(namespace string) (*corev1.ServiceAccount, *rbacv1.ClusterRo
 var serviceMonitorLabel = map[string]string{"app": prometheusCollectorDeployment}
 
 // prometheusInstance builds the Prometheus resource that scrapes via the
-// ServiceMonitor and accepts OTLP writes with NoTranslation.
+// ServiceMonitor and accepts OTLP writes with UTF-8 metric names.
 func prometheusInstance(namespace string) *monitoringv1.Prometheus {
 	return &monitoringv1.Prometheus{
 		TypeMeta:   metav1.TypeMeta{APIVersion: monitoringv1.SchemeGroupVersion.String(), Kind: monitoringv1.PrometheusesKind},
@@ -372,9 +371,9 @@ func prometheusInstance(namespace string) *monitoringv1.Prometheus {
 		Spec: monitoringv1.PrometheusSpec{
 			CommonPrometheusFields: monitoringv1.CommonPrometheusFields{
 				ServiceAccountName: "prometheus",
-				EnableFeatures:     []monitoringv1.EnableFeature{"otlp-write-receiver"},
+				EnableOTLPReceiver: ptr.To(true),
 				OTLP: &monitoringv1.OTLPConfig{
-					TranslationStrategy: ptr.To(monitoringv1.NoTranslation),
+					TranslationStrategy: ptr.To(monitoringv1.NoUTF8EscapingWithSuffixes),
 				},
 				ServiceMonitorSelector:          &metav1.LabelSelector{MatchLabels: serviceMonitorLabel},
 				ServiceMonitorNamespaceSelector: &metav1.LabelSelector{},

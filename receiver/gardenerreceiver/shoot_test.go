@@ -471,6 +471,43 @@ func TestEmitShootConstraints(t *testing.T) {
 	require.Equal(t, int64(0), falseDp.IntValue(), "expected value 0 for ConditionFalse status")
 }
 
+// TestEmitShootConstraintsNoConstraints verifies that a shoot with no
+// constraints produces an empty metric that dropEmptyMetrics prunes, so nothing
+// empty leaves the receiver. Prometheus' OTLP receiver errors the whole write
+// request when a metric has no data points.
+func TestEmitShootConstraintsNoConstraints(t *testing.T) {
+	fakeClient := gardenerfake.NewSimpleClientset()
+	shoot := &corev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-shoot",
+			Namespace: "garden-dev",
+			UID:       "shoot-uid-456",
+		},
+		Status: corev1beta1.ShootStatus{
+			TechnicalID: "shoot-technical-id-123",
+		},
+	}
+
+	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
+	informer := factory.Core().V1beta1().Shoots().Informer()
+	require.NoError(t, informer.GetStore().Add(shoot), "failed to add shoot to informer store")
+
+	gardenerReceiver := &gardenerReceiver{
+		config:        &Config{Kubeconfig: "/tmp/fake-kubeconfig-for-testing", Resources: []string{"shoot"}},
+		settings:      receivertest.NewNopSettings(component.MustNewType("gardener")),
+		consumer:      new(consumertest.MetricsSink),
+		shootInformer: informer,
+		logger:        zap.NewNop(),
+	}
+
+	md := pmetric.NewMetrics()
+	sm := gardenerReceiver.initScopeMetrics(&md)
+	gardenerReceiver.collectShootConstraints(&sm, nowTimestamp())
+	dropEmptyMetrics(sm)
+
+	require.Equal(t, 0, md.MetricCount(), "expected the empty constraint metric to be pruned")
+}
+
 func TestEmitShootStatus(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	shoot := &corev1beta1.Shoot{

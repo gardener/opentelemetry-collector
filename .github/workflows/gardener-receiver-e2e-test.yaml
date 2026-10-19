@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'receiver/gardenerreceiver/**'
+      - '.github/workflows/gardener-receiver-e2e-test.yaml'
   workflow_dispatch:
     inputs:
       gardener_ref:

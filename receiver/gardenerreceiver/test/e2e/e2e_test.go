@@ -6,9 +6,9 @@
 
 // Package e2e deploys the Gardener receiver end to end and validates that its
 // metrics land in Prometheus. The hack/gardener-receiver-e2e-test.sh script
-// brings up the KinD cluster, deploys Gardener, and resolves the collector
-// image; this suite deploys every component (collectors, Prometheus, Shoot) and
-// performs the assertions.
+// brings up the KinD cluster, deploys Gardener, and builds and pushes the
+// collector image under test into the KinD-local registry; this suite deploys
+// every component (collectors, Prometheus, Shoot) and performs the assertions.
 package e2e
 
 import (
@@ -56,8 +56,8 @@ var _ = BeforeSuite(func() {
 
 	// Deploy every component (namespace, secret, collectors, Prometheus stack,
 	// Shoot) and wait for the operator-generated workloads to become Ready. The
-	// shell script only brings up the cluster, deploys Gardener, and resolves the
-	// collector image; everything downstream lives here.
+	// shell script only brings up the cluster, deploys Gardener, and builds and
+	// pushes the collector image; everything downstream lives here.
 	restConfig := deployComponents(ctx)
 
 	namespace := testNamespace()

@@ -9,11 +9,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The gardenerreceiver Go module root (one level up from hack/); the e2e suite
 # that deploys the components and validates the metrics is rooted here.
 MODULE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# The collector repository root (two levels up from the module), which holds the
+# Dockerfile and the top-level `docker-image` make target.
+REPO_ROOT="$(cd "${MODULE_DIR}/../.." && pwd)"
 
 # GARDENER_DIR is exported so the Go suite can read the provider-local Shoot
 # manifest it applies to the virtual garden.
 export GARDENER_DIR="${GARDENER_DIR:-${GOPATH:-$(go env GOPATH)}/src/github.com/gardener/gardener}"
-COLLECTOR_IMAGE_REPO="${COLLECTOR_IMAGE_REPO:-europe-docker.pkg.dev/gardener-project/snapshots/gardener/observability/opentelemetry-collector}"
+COLLECTOR_IMAGE_REPO="opentelemetry-collector"
+KIND_REGISTRY_HOST="${KIND_REGISTRY_HOST:-localhost:5001}"
+KIND_REGISTRY_CLUSTER="${KIND_REGISTRY_CLUSTER:-garden.local.gardener.cloud:5001}"
+COLLECTOR_IMAGE_TAG="${COLLECTOR_IMAGE_TAG:-e2e}"
+
 # Exported so the Go suite picks up the same namespace.
 export TEST_NAMESPACE="${TEST_NAMESPACE:-gardener-monitoring-test}"
 
@@ -52,34 +59,19 @@ deploy_gardener() {
   endgroup
 }
 
-resolve_collector_image() {
-  local registry="${COLLECTOR_IMAGE_REPO%%/*}"
-  local repository="${COLLECTOR_IMAGE_REPO#*/}"
+build_and_push_collector_image() {
+  local host_image="${KIND_REGISTRY_HOST}/${COLLECTOR_IMAGE_REPO}:${COLLECTOR_IMAGE_TAG}"
+  local cluster_image="${KIND_REGISTRY_CLUSTER}/${COLLECTOR_IMAGE_REPO}:${COLLECTOR_IMAGE_TAG}"
 
-  local tag
-  tag=$(curl -fsSL "https://${registry}/v2/${repository}/tags/list" | jq -r '
-    [
-      (.manifest // {}) | to_entries[]
-      | select(
-          .value.mediaType == "application/vnd.docker.distribution.manifest.list.v2+json"
-          or .value.mediaType == "application/vnd.oci.image.index.v1+json"
-        )
-      | .value as $manifest
-      | $manifest.tag[]?
-      | {
-          tag: .,
-          uploaded: ($manifest.timeUploadedMs | tonumber)
-        }
-    ]
-    | max_by(.uploaded).tag // empty
-  ')
+  group "Build collector image from source" >&2
+  make -C "${REPO_ROOT}" docker-image IMAGE_REPOSITORY="${KIND_REGISTRY_HOST}/${COLLECTOR_IMAGE_REPO}" EFFECTIVE_VERSION="${COLLECTOR_IMAGE_TAG}" >&2
+  endgroup >&2
 
-  if [[ -z "${tag}" ]]; then
-    echo "No Collector image tag found in ${COLLECTOR_IMAGE_REPO}" >&2
-    return 1
-  fi
+  group "Push collector image to KinD registry (${host_image})" >&2
+  docker push "${host_image}" >&2
+  endgroup >&2
 
-  echo "${COLLECTOR_IMAGE_REPO}:${tag}"
+  echo "${cluster_image}"
 }
 
 run_e2e_test() {
@@ -98,11 +90,9 @@ main() {
   bring_up_kind
   deploy_gardener
 
-  group "Resolve collector image reference"
   local collector_image
-  collector_image=$(resolve_collector_image)
-  echo "Resolved Collector image: ${collector_image}"
-  endgroup
+  collector_image=$(build_and_push_collector_image)
+  echo "Testing collector image: ${collector_image}"
 
   run_e2e_test "${collector_image}"
 }

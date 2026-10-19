@@ -16,9 +16,9 @@ REPO_ROOT="$(cd "${MODULE_DIR}/../.." && pwd)"
 # GARDENER_DIR is exported so the Go suite can read the provider-local Shoot
 # manifest it applies to the virtual garden.
 export GARDENER_DIR="${GARDENER_DIR:-${GOPATH:-$(go env GOPATH)}/src/github.com/gardener/gardener}"
-COLLECTOR_IMAGE_REPO="opentelemetry-collector"
+COLLECTOR_IMAGE_REPO="${COLLECTOR_IMAGE_REPO:-opentelemetry-collector}"
 KIND_REGISTRY_HOST="${KIND_REGISTRY_HOST:-localhost:5001}"
-KIND_REGISTRY_CLUSTER="${KIND_REGISTRY_CLUSTER:-garden.local.gardener.cloud:5001}"
+KIND_REGISTRY_CLUSTER="${KIND_REGISTRY_CLUSTER:-registry.local.gardener.cloud:5001}"
 COLLECTOR_IMAGE_TAG="${COLLECTOR_IMAGE_TAG:-e2e}"
 
 # Exported so the Go suite picks up the same namespace.
@@ -62,6 +62,15 @@ deploy_gardener() {
 build_and_push_collector_image() {
   local host_image="${KIND_REGISTRY_HOST}/${COLLECTOR_IMAGE_REPO}:${COLLECTOR_IMAGE_TAG}"
   local cluster_image="${KIND_REGISTRY_CLUSTER}/${COLLECTOR_IMAGE_REPO}:${COLLECTOR_IMAGE_TAG}"
+
+  group "Check KinD registry is reachable (${KIND_REGISTRY_HOST})" >&2
+  if ! curl -fsS "http://${KIND_REGISTRY_HOST}/v2/" >/dev/null; then
+    echo "KinD-local registry not reachable at http://${KIND_REGISTRY_HOST}/v2/;" \
+      "is 'gardener kind-up' done and did it provision the local registry?" >&2
+    endgroup >&2
+    return 1
+  fi
+  endgroup >&2
 
   group "Build collector image from source" >&2
   make -C "${REPO_ROOT}" docker-image IMAGE_REPOSITORY="${KIND_REGISTRY_HOST}/${COLLECTOR_IMAGE_REPO}" EFFECTIVE_VERSION="${COLLECTOR_IMAGE_TAG}" >&2

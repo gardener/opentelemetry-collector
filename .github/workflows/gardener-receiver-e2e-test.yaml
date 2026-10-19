@@ -39,8 +39,10 @@ jobs:
       - name: Resolve gardener ref
         id: gardener-ref
         working-directory: receiver/gardenerreceiver
+        env:
+          GARDENER_REF: ${{ github.event.inputs.gardener_ref }}
         run: |
-          ref="${{ github.event.inputs.gardener_ref }}"
+          ref="${GARDENER_REF}"
           if [[ -z "${ref}" ]]; then
             ref=$( go mod edit -json | jq -r '.Require[] | select(.Path == "github.com/gardener/gardener") | .Version' )
           fi

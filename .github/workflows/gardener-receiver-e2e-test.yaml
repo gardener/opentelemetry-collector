@@ -1,13 +1,19 @@
 name: Gardener Receiver E2E Test
 
 on:
-  schedule:
-    - cron: '0 4 * * *'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'receiver/gardenerreceiver/**'
+      - '.github/workflows/gardener-receiver-e2e-test.yaml'
   workflow_dispatch:
     inputs:
       gardener_ref:
-        description: gardener/gardener git ref to test against
-        default: master
+        description: |
+          gardener/gardener git ref to test against. Defaults to the version
+          pinned in receiver/gardenerreceiver/go.mod.
+        default: ""
         type: string
 
 permissions:
@@ -21,17 +27,38 @@ jobs:
       - name: Checkout collector
         uses: actions/checkout@v7
 
-      - name: Checkout gardener
-        uses: actions/checkout@v7
-        with:
-          repository: gardener/gardener
-          ref: ${{ github.event.inputs.gardener_ref || 'master' }}
-          path: gardener
-
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
+
+      # To keep the tested Gardener version in lock-step with the Gardener module
+      # we compile against, this step reads the matching git ref out of go.mod
+      # so no separate pin needs to be maintained. A manual gardener_ref dispatch
+      # input overrides it.
+      - name: Resolve gardener ref
+        id: gardener-ref
+        working-directory: receiver/gardenerreceiver
+        env:
+          GARDENER_REF: ${{ github.event.inputs.gardener_ref }}
+        run: |
+          ref="${GARDENER_REF}"
+          if [[ -z "${ref}" ]]; then
+            ref=$( go mod edit -json | jq -r '.Require[] | select(.Path == "github.com/gardener/gardener") | .Version' )
+          fi
+          if [[ -z "${ref}" ]]; then
+            echo "could not determine gardener/gardener version from go.mod" >&2
+            exit 1
+          fi
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+          echo "Testing against gardener/gardener ${ref}"
+
+      - name: Checkout gardener
+        uses: actions/checkout@v7
+        with:
+          repository: gardener/gardener
+          ref: ${{ steps.gardener-ref.outputs.ref }}
+          path: gardener
 
       - name: Install dnsmasq
         run: |

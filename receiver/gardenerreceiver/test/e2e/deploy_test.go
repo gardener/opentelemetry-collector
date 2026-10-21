@@ -91,7 +91,7 @@ func deployComponents(ctx context.Context) *restclient.Config {
 	Expect(gardenerAPIKubeconfig).NotTo(BeEmpty(), "GARDENER_API_KUBECONFIG must point at the virtual-garden kubeconfig")
 
 	collectorImage := os.Getenv("COLLECTOR_IMAGE")
-	Expect(collectorImage).NotTo(BeEmpty(), "COLLECTOR_IMAGE must be the resolved collector image reference")
+	Expect(collectorImage).NotTo(BeEmpty(), "COLLECTOR_IMAGE must be the collector image reference to deploy")
 
 	namespace := testNamespace()
 

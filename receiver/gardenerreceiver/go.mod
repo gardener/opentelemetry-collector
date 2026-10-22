@@ -3,8 +3,8 @@ module github.com/gardener/opentelemetry-collector/receiver/gardenerreceiver
 go 1.26.8
 
 require (
-	github.com/gardener/gardener v1.153.1
-	github.com/gardener/gardener/pkg/apis v1.153.1
+	github.com/gardener/gardener v1.153.2
+	github.com/gardener/gardener/pkg/apis v1.153.2
 	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
 	github.com/open-telemetry/opentelemetry-operator/apis v0.161.0

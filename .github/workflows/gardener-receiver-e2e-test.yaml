@@ -66,8 +66,22 @@ jobs:
           sudo apt-get install -y dnsmasq
           sudo systemctl disable --now dnsmasq || true
 
+      - name: Trust Gardener local registry in Docker daemon
+        run: |
+          registry=registry.local.gardener.cloud:5001
+          sudo mkdir -p /etc/docker
+          if [[ -s /etc/docker/daemon.json ]]; then
+            existing=$(cat /etc/docker/daemon.json)
+          else
+            existing='{}'
+          fi
+          echo "$existing" | jq --arg r "$registry" \
+            '.["insecure-registries"] = ((.["insecure-registries"] // []) + [$r] | unique)' \
+            | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
       - name: Run Gardener Recevier e2e test
         env:
           CI: ""
           GARDENER_DIR: ${{ github.workspace }}/gardener
-        run: sudo -E env "PATH=$PATH" make -C receiver/gardenerreceiver test-e2e
+        run: sudo --preserve-env=PATH,GARDENER_DIR,CI make -C receiver/gardenerreceiver test-e2e

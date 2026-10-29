@@ -70,4 +70,4 @@ jobs:
         env:
           CI: ""
           GARDENER_DIR: ${{ github.workspace }}/gardener
-        run: sudo -E env "PATH=$PATH" make -C receiver/gardenerreceiver test-e2e
+        run: sudo --preserve-env=PATH,GARDENER_DIR,CI make -C receiver/gardenerreceiver test-e2e

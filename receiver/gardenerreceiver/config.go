@@ -67,7 +67,7 @@ func validateKubeconfig(kubeconfig string) error {
 	return nil
 }
 
-var validResources = []string{"shoots", "seeds", "projects", "managedseeds", "gardenlets"}
+var validResources = []string{"shoots", "seeds", "projects", "managedseeds", "gardenlets", "cloudprofiles"}
 
 func validateResources(resources []string) error {
 	for _, res := range resources {
@@ -96,4 +96,8 @@ func (cfg *Config) HasManagedSeedResource() bool {
 
 func (cfg *Config) HasGardenletResource() bool {
 	return slices.Contains(cfg.Resources, "gardenlets")
+}
+
+func (cfg *Config) HasCloudProfileResource() bool {
+	return slices.Contains(cfg.Resources, "cloudprofiles")
 }

@@ -47,6 +47,7 @@ type gardenerReceiver struct {
 	gardenletInformer          cache.SharedIndexInformer
 	secretBindingInformer      cache.SharedIndexInformer
 	credentialsBindingInformer cache.SharedIndexInformer
+	cloudProfileInformer       cache.SharedIndexInformer
 }
 
 func newGardenerReceiver(
@@ -163,8 +164,8 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 		r.logger.Info("Binding informer caches synced successfully")
 	}
 
-	if r.config.HasSeedResource() || r.config.HasProjectResource() {
-		// Seeds and projects are both cluster-scoped resources in the same API group;
+	if r.config.HasSeedResource() || r.config.HasProjectResource() || r.config.HasCloudProfileResource() {
+		// Seeds, projects, and cloud profiles are cluster-scoped resources in the same API group;
 		// share a single factory to avoid duplicate list/watch connections.
 		clusterScopedFactory := gardenerinformers.NewSharedInformerFactoryWithOptions(
 			r.gardenerClient,
@@ -178,6 +179,10 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 
 		if r.config.HasProjectResource() {
 			r.projectInformer = clusterScopedFactory.Core().V1beta1().Projects().Informer()
+		}
+
+		if r.config.HasCloudProfileResource() {
+			r.cloudProfileInformer = clusterScopedFactory.Core().V1beta1().CloudProfiles().Informer()
 		}
 
 		clusterScopedFactory.Start(ctx.Done())
@@ -196,6 +201,14 @@ func (r *gardenerReceiver) Start(_ context.Context, _ component.Host) error {
 				return fmt.Errorf("failed to sync project informer caches")
 			}
 			r.logger.Info("Project informer caches synced successfully")
+		}
+
+		if r.config.HasCloudProfileResource() {
+			r.logger.Info("Waiting for cloud profile informer caches to sync")
+			if !cache.WaitForCacheSync(ctx.Done(), r.cloudProfileInformer.HasSynced) {
+				return fmt.Errorf("failed to sync cloud profile informer caches")
+			}
+			r.logger.Info("Cloud profile informer caches synced successfully")
 		}
 	}
 
@@ -306,6 +319,10 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 
 	if r.config.HasGardenletResource() {
 		r.collectGardenletMetrics(&sm, now)
+	}
+
+	if r.config.HasCloudProfileResource() {
+		r.collectCloudProfileMetrics(&sm, now)
 	}
 
 	// Drop any metric left with zero data points: Prometheus' OTLP receiver

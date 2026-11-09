@@ -308,6 +308,8 @@ func transformCoreClusterScoped(obj any) (any, error) {
 		return transformSeed(obj)
 	case *corev1beta1.Project:
 		return transformProject(obj)
+	case *corev1beta1.CloudProfile:
+		return transformCloudProfile(obj)
 	default:
 		return obj, nil
 	}
@@ -322,4 +324,23 @@ func transformSeedManagement(obj any) (any, error) {
 	default:
 		return obj, nil
 	}
+}
+
+func transformCloudProfile(obj any) (any, error) {
+	src, ok := obj.(*corev1beta1.CloudProfile)
+	if !ok {
+		return obj, nil
+	}
+
+	dst := &corev1beta1.CloudProfile{
+		TypeMeta:   src.TypeMeta,
+		ObjectMeta: retainObjectMeta(src.ObjectMeta),
+		Spec:       corev1beta1.CloudProfileSpec{},
+		Status: corev1beta1.CloudProfileStatus{
+			Kubernetes:    src.Status.Kubernetes,
+			MachineImages: src.Status.MachineImages,
+		},
+	}
+
+	return dst, nil
 }

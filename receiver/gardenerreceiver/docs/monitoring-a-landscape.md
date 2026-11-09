@@ -13,7 +13,7 @@ attributes on shoot info metrics).
 
 API groups touched:
 
-- `core.gardener.cloud` (`shoots`, `seeds`, `projects`, `secretbindings`)
+- `core.gardener.cloud` (`shoots`, `seeds`, `projects`, `secretbindings`, `cloudprofiles`)
 - `seedmanagement.gardener.cloud` (`managedseeds`, `gardenlets`)
 - `security.gardener.cloud` (`credentialsbindings`)
 

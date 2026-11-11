@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/open-telemetry/opentelemetry-operator/apis v0.162.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.95.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.95.2
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/common v0.73.1
 	github.com/stretchr/testify v1.12.1

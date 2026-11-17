@@ -10,6 +10,19 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
+// collectProjectCountMetric emits the total number of projects.
+func (r *gardenerReceiver) collectProjectCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.project.count")
+	metric.SetDescription("Total number of Gardener projects")
+	metric.SetUnit("{project}")
+
+	gauge := metric.SetEmptyGauge()
+	dp := gauge.DataPoints().AppendEmpty()
+	dp.SetTimestamp(now)
+	dp.SetIntValue(int64(len(r.projectInformer.GetStore().List())))
+}
+
 func (r *gardenerReceiver) collectProjectMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	projectList := r.projectInformer.GetStore().List()
 

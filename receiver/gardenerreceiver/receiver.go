@@ -287,6 +287,7 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 
 	if r.config.HasShootResource() {
 		l := r.buildShootLookups()
+		r.collectShootCountMetric(&sm, now)
 		r.collectShootInfoMetrics(&sm, now, l)
 		r.collectShootHibernatedMetric(&sm, now)
 		r.collectShootCreationTimestamp(&sm, now)
@@ -300,6 +301,7 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 	}
 
 	if r.config.HasSeedResource() {
+		r.collectSeedCountMetric(&sm, now)
 		r.collectSeedInfoMetrics(&sm, now)
 		r.collectSeedCapacityMetrics(&sm, now)
 		r.collectSeedConditions(&sm, now)
@@ -309,15 +311,18 @@ func (r *gardenerReceiver) sendMetrics(ctx context.Context) error {
 	}
 
 	if r.config.HasProjectResource() {
+		r.collectProjectCountMetric(&sm, now)
 		r.collectProjectMetrics(&sm, now)
 		r.collectUserMetrics(&sm, now)
 	}
 
 	if r.config.HasManagedSeedResource() {
+		r.collectManagedSeedCountMetric(&sm, now)
 		r.collectManagedSeedMetrics(&sm, now)
 	}
 
 	if r.config.HasGardenletResource() {
+		r.collectGardenletCountMetric(&sm, now)
 		r.collectGardenletMetrics(&sm, now)
 	}
 

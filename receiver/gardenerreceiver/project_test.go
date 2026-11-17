@@ -43,6 +43,35 @@ func newProjectReceiver(t *testing.T, projects ...*corev1beta1.Project) *gardene
 	}
 }
 
+func TestCollectProjectCountMetric_Empty(t *testing.T) {
+	r := newProjectReceiver(t)
+	md := pmetric.NewMetrics()
+	sm := r.initScopeMetrics(&md)
+	r.collectProjectCountMetric(&sm, nowTimestamp())
+
+	require.Equal(t, 1, md.MetricCount())
+	require.Equal(t, 1, md.DataPointCount())
+	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
+	require.Equal(t, "garden.project.count", m.Name())
+	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
+}
+
+func TestCollectProjectCountMetric(t *testing.T) {
+	projects := []*corev1beta1.Project{
+		{ObjectMeta: metav1.ObjectMeta{Name: "p1"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "p2"}},
+	}
+	r := newProjectReceiver(t, projects...)
+	md := pmetric.NewMetrics()
+	sm := r.initScopeMetrics(&md)
+	r.collectProjectCountMetric(&sm, nowTimestamp())
+
+	require.Equal(t, 1, md.MetricCount())
+	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
+	require.Equal(t, "garden.project.count", m.Name())
+	require.Equal(t, int64(2), m.Gauge().DataPoints().At(0).IntValue())
+}
+
 func TestCollectProjectMetrics_Empty(t *testing.T) {
 	r := newProjectReceiver(t)
 	md := pmetric.NewMetrics()

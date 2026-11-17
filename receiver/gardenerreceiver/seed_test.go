@@ -22,6 +22,53 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+func newSeedCountReceiver(t *testing.T, seeds ...*corev1beta1.Seed) *gardenerReceiver {
+	t.Helper()
+	fakeClient := gardenerfake.NewSimpleClientset()
+	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
+	informer := factory.Core().V1beta1().Seeds().Informer()
+	for _, s := range seeds {
+		require.NoError(t, informer.GetStore().Add(s))
+	}
+	return &gardenerReceiver{
+		config:       &Config{Kubeconfig: "/tmp/fake-kubeconfig-for-testing", Resources: []string{"seeds"}},
+		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
+		consumer:     new(consumertest.MetricsSink),
+		seedInformer: informer,
+		logger:       zap.NewNop(),
+	}
+}
+
+func TestCollectSeedCountMetric_Empty(t *testing.T) {
+	r := newSeedCountReceiver(t)
+	md := pmetric.NewMetrics()
+	sm := r.initScopeMetrics(&md)
+	r.collectSeedCountMetric(&sm, nowTimestamp())
+
+	require.Equal(t, 1, md.MetricCount())
+	require.Equal(t, 1, md.DataPointCount())
+	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
+	require.Equal(t, "garden.seed.count", m.Name())
+	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
+}
+
+func TestCollectSeedCountMetric(t *testing.T) {
+	seeds := []*corev1beta1.Seed{
+		{ObjectMeta: metav1.ObjectMeta{Name: "s1"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "s2"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "s3"}},
+	}
+	r := newSeedCountReceiver(t, seeds...)
+	md := pmetric.NewMetrics()
+	sm := r.initScopeMetrics(&md)
+	r.collectSeedCountMetric(&sm, nowTimestamp())
+
+	require.Equal(t, 1, md.MetricCount())
+	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
+	require.Equal(t, "garden.seed.count", m.Name())
+	require.Equal(t, int64(3), m.Gauge().DataPoints().At(0).IntValue())
+}
+
 func TestCollectSeedOperationStates(t *testing.T) {
 	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{

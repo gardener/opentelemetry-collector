@@ -22,7 +22,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func newSeedCountReceiver(t *testing.T, seeds ...*corev1beta1.Seed) *gardenerReceiver {
+func newSeedReceiver(t *testing.T, seeds ...*corev1beta1.Seed) *gardenerReceiver {
 	t.Helper()
 	fakeClient := gardenerfake.NewSimpleClientset()
 	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
@@ -40,7 +40,7 @@ func newSeedCountReceiver(t *testing.T, seeds ...*corev1beta1.Seed) *gardenerRec
 }
 
 func TestCollectSeedCountMetric_Empty(t *testing.T) {
-	r := newSeedCountReceiver(t)
+	r := newSeedReceiver(t)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectSeedCountMetric(&sm, nowTimestamp())
@@ -58,7 +58,7 @@ func TestCollectSeedCountMetric(t *testing.T) {
 		{ObjectMeta: metav1.ObjectMeta{Name: "s2"}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "s3"}},
 	}
-	r := newSeedCountReceiver(t, seeds...)
+	r := newSeedReceiver(t, seeds...)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectSeedCountMetric(&sm, nowTimestamp())
@@ -70,7 +70,6 @@ func TestCollectSeedCountMetric(t *testing.T) {
 }
 
 func TestCollectSeedOperationStates(t *testing.T) {
-	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
 		Spec: corev1beta1.SeedSpec{
@@ -87,23 +86,11 @@ func TestCollectSeedOperationStates(t *testing.T) {
 			},
 		},
 	}
-
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Seeds().Informer()
-	err := informer.GetStore().Add(seed)
-	require.NoError(t, err)
-
-	gardenerReceiver := &gardenerReceiver{
-		config:       &Config{Kubeconfig: "/tmp/fake-kubeconfig-for-testing", Resources: []string{"seeds"}},
-		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:     new(consumertest.MetricsSink),
-		seedInformer: informer,
-		logger:       zap.NewNop(),
-	}
+	r := newSeedReceiver(t, seed)
 
 	md := pmetric.NewMetrics()
-	sm := gardenerReceiver.initScopeMetrics(&md)
-	gardenerReceiver.collectSeedOperationStates(&sm, nowTimestamp())
+	sm := r.initScopeMetrics(&md)
+	r.collectSeedOperationStates(&sm, nowTimestamp())
 
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
@@ -128,29 +115,17 @@ func TestCollectSeedOperationStates(t *testing.T) {
 }
 
 func TestCollectSeedOperationStates_NoLastOperation(t *testing.T) {
-	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
 		Spec: corev1beta1.SeedSpec{
 			Provider: corev1beta1.SeedProvider{Type: "aws", Region: "eu-west-1"},
 		},
 	}
-
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Seeds().Informer()
-	require.NoError(t, informer.GetStore().Add(seed))
-
-	gardenerReceiver := &gardenerReceiver{
-		config:       &Config{Kubeconfig: "/tmp/fake-kubeconfig-for-testing", Resources: []string{"seeds"}},
-		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:     new(consumertest.MetricsSink),
-		seedInformer: informer,
-		logger:       zap.NewNop(),
-	}
+	r := newSeedReceiver(t, seed)
 
 	md := pmetric.NewMetrics()
-	sm := gardenerReceiver.initScopeMetrics(&md)
-	gardenerReceiver.collectSeedOperationStates(&sm, nowTimestamp())
+	sm := r.initScopeMetrics(&md)
+	r.collectSeedOperationStates(&sm, nowTimestamp())
 
 	// No last operation: metric is emitted but with no data points
 	require.Equal(t, 1, md.MetricCount())
@@ -443,7 +418,6 @@ func TestEmitSeedCapacity(t *testing.T) {
 }
 
 func TestCollectSeedConditions(t *testing.T) {
-	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
 		Spec: corev1beta1.SeedSpec{
@@ -467,18 +441,7 @@ func TestCollectSeedConditions(t *testing.T) {
 			},
 		},
 	}
-
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Seeds().Informer()
-	require.NoError(t, informer.GetStore().Add(seed))
-
-	r := &gardenerReceiver{
-		config:       &Config{Kubeconfig: "/tmp/fake", Resources: []string{"seeds"}},
-		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:     new(consumertest.MetricsSink),
-		seedInformer: informer,
-		logger:       zap.NewNop(),
-	}
+	r := newSeedReceiver(t, seed)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
@@ -506,7 +469,6 @@ func TestCollectSeedConditions(t *testing.T) {
 }
 
 func TestCollectSeedConstraints(t *testing.T) {
-	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
 		Spec: corev1beta1.SeedSpec{
@@ -528,18 +490,7 @@ func TestCollectSeedConstraints(t *testing.T) {
 			},
 		},
 	}
-
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Seeds().Informer()
-	require.NoError(t, informer.GetStore().Add(seed))
-
-	r := &gardenerReceiver{
-		config:       &Config{Kubeconfig: "/tmp/fake", Resources: []string{"seeds"}},
-		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:     new(consumertest.MetricsSink),
-		seedInformer: informer,
-		logger:       zap.NewNop(),
-	}
+	r := newSeedReceiver(t, seed)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
@@ -565,22 +516,10 @@ func TestCollectSeedConstraints(t *testing.T) {
 // empty leaves the receiver. Prometheus' OTLP receiver errors the whole write
 // request when a metric has no data points.
 func TestCollectSeedConstraintsNoConstraints(t *testing.T) {
-	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
 	}
-
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Seeds().Informer()
-	require.NoError(t, informer.GetStore().Add(seed))
-
-	r := &gardenerReceiver{
-		config:       &Config{Kubeconfig: "/tmp/fake", Resources: []string{"seeds"}},
-		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:     new(consumertest.MetricsSink),
-		seedInformer: informer,
-		logger:       zap.NewNop(),
-	}
+	r := newSeedReceiver(t, seed)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
@@ -591,7 +530,6 @@ func TestCollectSeedConstraintsNoConstraints(t *testing.T) {
 }
 
 func TestCollectSeedAllocatableMetrics(t *testing.T) {
-	fakeClient := gardenerfake.NewSimpleClientset()
 	seed := &corev1beta1.Seed{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-seed"},
 		Spec: corev1beta1.SeedSpec{
@@ -603,18 +541,7 @@ func TestCollectSeedAllocatableMetrics(t *testing.T) {
 			},
 		},
 	}
-
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Seeds().Informer()
-	require.NoError(t, informer.GetStore().Add(seed))
-
-	r := &gardenerReceiver{
-		config:       &Config{Kubeconfig: "/tmp/fake", Resources: []string{"seeds"}},
-		settings:     receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:     new(consumertest.MetricsSink),
-		seedInformer: informer,
-		logger:       zap.NewNop(),
-	}
+	r := newSeedReceiver(t, seed)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)

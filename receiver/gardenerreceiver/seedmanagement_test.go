@@ -21,25 +21,13 @@ import (
 )
 
 func TestCollectManagedSeedMetrics(t *testing.T) {
-	fakeClient := seedmanagementfake.NewSimpleClientset()
 	ms := &seedmanagementv1alpha1.ManagedSeed{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-managed-seed"},
 		Spec: seedmanagementv1alpha1.ManagedSeedSpec{
 			Shoot: &seedmanagementv1alpha1.Shoot{Name: "my-shoot"},
 		},
 	}
-
-	factory := seedmanagementinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Seedmanagement().V1alpha1().ManagedSeeds().Informer()
-	require.NoError(t, informer.GetStore().Add(ms))
-
-	r := &gardenerReceiver{
-		config:              &Config{Kubeconfig: "/tmp/fake", Resources: []string{"managedseeds"}},
-		settings:            receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:            new(consumertest.MetricsSink),
-		managedSeedInformer: informer,
-		logger:              zap.NewNop(),
-	}
+	r := newManagedSeedReceiver(t, ms)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
@@ -61,17 +49,7 @@ func TestCollectManagedSeedMetrics(t *testing.T) {
 }
 
 func TestCollectManagedSeedMetrics_Empty(t *testing.T) {
-	fakeClient := seedmanagementfake.NewSimpleClientset()
-	factory := seedmanagementinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Seedmanagement().V1alpha1().ManagedSeeds().Informer()
-
-	r := &gardenerReceiver{
-		config:              &Config{Kubeconfig: "/tmp/fake", Resources: []string{"managedseeds"}},
-		settings:            receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:            new(consumertest.MetricsSink),
-		managedSeedInformer: informer,
-		logger:              zap.NewNop(),
-	}
+	r := newManagedSeedReceiver(t)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
@@ -81,7 +59,6 @@ func TestCollectManagedSeedMetrics_Empty(t *testing.T) {
 }
 
 func TestCollectGardenletMetrics(t *testing.T) {
-	fakeClient := seedmanagementfake.NewSimpleClientset()
 	gl := &seedmanagementv1alpha1.Gardenlet{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-gardenlet", Generation: 5},
 		Status: seedmanagementv1alpha1.GardenletStatus{
@@ -95,18 +72,7 @@ func TestCollectGardenletMetrics(t *testing.T) {
 			},
 		},
 	}
-
-	factory := seedmanagementinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Seedmanagement().V1alpha1().Gardenlets().Informer()
-	require.NoError(t, informer.GetStore().Add(gl))
-
-	r := &gardenerReceiver{
-		config:            &Config{Kubeconfig: "/tmp/fake", Resources: []string{"gardenlets"}},
-		settings:          receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:          new(consumertest.MetricsSink),
-		gardenletInformer: informer,
-		logger:            zap.NewNop(),
-	}
+	r := newGardenletReceiver(t, gl)
 
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
@@ -143,7 +109,7 @@ func TestCollectGardenletMetrics(t *testing.T) {
 	}
 }
 
-func newManagedSeedCountReceiver(t *testing.T, managedSeeds ...*seedmanagementv1alpha1.ManagedSeed) *gardenerReceiver {
+func newManagedSeedReceiver(t *testing.T, managedSeeds ...*seedmanagementv1alpha1.ManagedSeed) *gardenerReceiver {
 	t.Helper()
 	fakeClient := seedmanagementfake.NewSimpleClientset()
 	factory := seedmanagementinformers.NewSharedInformerFactory(fakeClient, 0)
@@ -161,7 +127,7 @@ func newManagedSeedCountReceiver(t *testing.T, managedSeeds ...*seedmanagementv1
 }
 
 func TestCollectManagedSeedCountMetric_Empty(t *testing.T) {
-	r := newManagedSeedCountReceiver(t)
+	r := newManagedSeedReceiver(t)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectManagedSeedCountMetric(&sm, nowTimestamp())
@@ -178,7 +144,7 @@ func TestCollectManagedSeedCountMetric(t *testing.T) {
 		{ObjectMeta: metav1.ObjectMeta{Name: "ms1"}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "ms2"}},
 	}
-	r := newManagedSeedCountReceiver(t, managedSeeds...)
+	r := newManagedSeedReceiver(t, managedSeeds...)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectManagedSeedCountMetric(&sm, nowTimestamp())
@@ -189,7 +155,7 @@ func TestCollectManagedSeedCountMetric(t *testing.T) {
 	require.Equal(t, int64(2), m.Gauge().DataPoints().At(0).IntValue())
 }
 
-func newGardenletCountReceiver(t *testing.T, gardenlets ...*seedmanagementv1alpha1.Gardenlet) *gardenerReceiver {
+func newGardenletReceiver(t *testing.T, gardenlets ...*seedmanagementv1alpha1.Gardenlet) *gardenerReceiver {
 	t.Helper()
 	fakeClient := seedmanagementfake.NewSimpleClientset()
 	factory := seedmanagementinformers.NewSharedInformerFactory(fakeClient, 0)
@@ -207,7 +173,7 @@ func newGardenletCountReceiver(t *testing.T, gardenlets ...*seedmanagementv1alph
 }
 
 func TestCollectGardenletCountMetric_Empty(t *testing.T) {
-	r := newGardenletCountReceiver(t)
+	r := newGardenletReceiver(t)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectGardenletCountMetric(&sm, nowTimestamp())
@@ -225,7 +191,7 @@ func TestCollectGardenletCountMetric(t *testing.T) {
 		{ObjectMeta: metav1.ObjectMeta{Name: "gl2"}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "gl3"}},
 	}
-	r := newGardenletCountReceiver(t, gardenlets...)
+	r := newGardenletReceiver(t, gardenlets...)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectGardenletCountMetric(&sm, nowTimestamp())

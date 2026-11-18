@@ -1755,18 +1755,7 @@ func TestCollectShootCreationTimestamp(t *testing.T) {
 			Kubernetes: corev1beta1.Kubernetes{Version: "1.28.0"},
 		},
 	}
-	fakeClient := gardenerfake.NewSimpleClientset()
-	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-	informer := factory.Core().V1beta1().Shoots().Informer()
-	require.NoError(t, informer.GetStore().Add(shoot))
-
-	r := &gardenerReceiver{
-		config:        &Config{Kubeconfig: "/tmp/fake", Resources: []string{"shoots"}},
-		settings:      receivertest.NewNopSettings(component.MustNewType("gardener")),
-		consumer:      new(consumertest.MetricsSink),
-		shootInformer: informer,
-		logger:        zap.NewNop(),
-	}
+	r := newShootReceiver(t, shoot)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectShootCreationTimestamp(&sm, nowTimestamp())
@@ -1797,18 +1786,7 @@ func TestCollectShootHibernatedMetric(t *testing.T) {
 				},
 				Status: corev1beta1.ShootStatus{IsHibernated: tc.hibernated},
 			}
-			fakeClient := gardenerfake.NewSimpleClientset()
-			factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
-			informer := factory.Core().V1beta1().Shoots().Informer()
-			require.NoError(t, informer.GetStore().Add(shoot))
-
-			r := &gardenerReceiver{
-				config:        &Config{Kubeconfig: "/tmp/fake", Resources: []string{"shoots"}},
-				settings:      receivertest.NewNopSettings(component.MustNewType("gardener")),
-				consumer:      new(consumertest.MetricsSink),
-				shootInformer: informer,
-				logger:        zap.NewNop(),
-			}
+			r := newShootReceiver(t, shoot)
 			md := pmetric.NewMetrics()
 			sm := r.initScopeMetrics(&md)
 			r.collectShootHibernatedMetric(&sm, nowTimestamp())
@@ -1821,7 +1799,7 @@ func TestCollectShootHibernatedMetric(t *testing.T) {
 	}
 }
 
-func newShootCountReceiver(t *testing.T, shoots ...*corev1beta1.Shoot) *gardenerReceiver {
+func newShootReceiver(t *testing.T, shoots ...*corev1beta1.Shoot) *gardenerReceiver {
 	t.Helper()
 	fakeClient := gardenerfake.NewSimpleClientset()
 	factory := gardenerinformers.NewSharedInformerFactory(fakeClient, 0)
@@ -1839,7 +1817,7 @@ func newShootCountReceiver(t *testing.T, shoots ...*corev1beta1.Shoot) *gardener
 }
 
 func TestCollectShootCountMetric_Empty(t *testing.T) {
-	r := newShootCountReceiver(t)
+	r := newShootReceiver(t)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectShootCountMetric(&sm, nowTimestamp())
@@ -1856,7 +1834,7 @@ func TestCollectShootCountMetric(t *testing.T) {
 		{ObjectMeta: metav1.ObjectMeta{Name: "sh1", Namespace: "garden-a"}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "sh2", Namespace: "garden-b"}},
 	}
-	r := newShootCountReceiver(t, shoots...)
+	r := newShootReceiver(t, shoots...)
 	md := pmetric.NewMetrics()
 	sm := r.initScopeMetrics(&md)
 	r.collectShootCountMetric(&sm, nowTimestamp())

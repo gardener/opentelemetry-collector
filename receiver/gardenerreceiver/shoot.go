@@ -154,6 +154,19 @@ func getMaintenancePreconditionsStatus(shoot *corev1beta1.Shoot) string {
 	return "Unknown"
 }
 
+// collectShootCountMetric emits the total number of shoots.
+func (r *gardenerReceiver) collectShootCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.shoot.count")
+	metric.SetDescription("Total number of Gardener shoots")
+	metric.SetUnit("{shoot}")
+
+	gauge := metric.SetEmptyGauge()
+	dp := gauge.DataPoints().AppendEmpty()
+	dp.SetTimestamp(now)
+	dp.SetIntValue(int64(len(r.shootInformer.GetStore().List())))
+}
+
 func (r *gardenerReceiver) collectShootInfoMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp, l shootLookups) {
 	shootList := r.shootInformer.GetStore().List()
 	if len(shootList) == 0 {

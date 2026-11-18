@@ -12,6 +12,19 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// collectSeedCountMetric emits the total number of seeds.
+func (r *gardenerReceiver) collectSeedCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.seed.count")
+	metric.SetDescription("Total number of Gardener seeds")
+	metric.SetUnit("{seed}")
+
+	gauge := metric.SetEmptyGauge()
+	dp := gauge.DataPoints().AppendEmpty()
+	dp.SetTimestamp(now)
+	dp.SetIntValue(int64(len(r.seedInformer.GetStore().List())))
+}
+
 func (r *gardenerReceiver) collectSeedInfoMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	seedList := r.seedInformer.GetStore().List()
 

@@ -10,6 +10,19 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
+// collectManagedSeedCountMetric emits the total number of managed seeds.
+func (r *gardenerReceiver) collectManagedSeedCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.managed_seed.count")
+	metric.SetDescription("Total number of Gardener managed seeds")
+	metric.SetUnit("{managed_seed}")
+
+	gauge := metric.SetEmptyGauge()
+	dp := gauge.DataPoints().AppendEmpty()
+	dp.SetTimestamp(now)
+	dp.SetIntValue(int64(len(r.managedSeedInformer.GetStore().List())))
+}
+
 func (r *gardenerReceiver) collectManagedSeedMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	list := r.managedSeedInformer.GetStore().List()
 
@@ -37,6 +50,19 @@ func (r *gardenerReceiver) collectManagedSeedMetrics(sm *pmetric.ScopeMetrics, n
 		}
 		dp.Attributes().PutStr("gardener.shoot.name", shootName)
 	}
+}
+
+// collectGardenletCountMetric emits the total number of gardenlets.
+func (r *gardenerReceiver) collectGardenletCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
+	metric := sm.Metrics().AppendEmpty()
+	metric.SetName("garden.gardenlet.count")
+	metric.SetDescription("Total number of Gardener gardenlets")
+	metric.SetUnit("{gardenlet}")
+
+	gauge := metric.SetEmptyGauge()
+	dp := gauge.DataPoints().AppendEmpty()
+	dp.SetTimestamp(now)
+	dp.SetIntValue(int64(len(r.gardenletInformer.GetStore().List())))
 }
 
 func (r *gardenerReceiver) collectGardenletMetrics(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {

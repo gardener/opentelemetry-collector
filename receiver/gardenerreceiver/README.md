@@ -70,6 +70,19 @@ Per-object metrics carry attributes identifying the underlying Gardener object
 `gardener.shoot.technical_id`, `gardener.seed.name`). The stable, globally
 unique identifier for a shoot is `gardener.shoot.uid`.
 
+### Resource counts
+
+The receiver emits a total count for each core resource group whenever that
+resource is enabled.
+
+| Metric name                  | Description                             |
+|------------------------------|-----------------------------------------|
+| `garden.shoot.count`         | Total number of Gardener shoots.        |
+| `garden.seed.count`          | Total number of Gardener seeds.         |
+| `garden.project.count`       | Total number of Gardener projects.      |
+| `garden.managed_seed.count`  | Total number of Gardener managed seeds. |
+| `garden.gardenlet.count`     | Total number of Gardener gardenlets.    |
+
 ### Per-object metrics
 
 | Resource group | Metric name                                       | Notes                                                                                                                          |

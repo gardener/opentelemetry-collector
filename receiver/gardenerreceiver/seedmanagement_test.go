@@ -36,7 +36,7 @@ func TestCollectManagedSeedMetrics(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.managed_seed.info", m.Name())
+	require.Equal(t, "gardenermetrics.managed_seed.info", m.Name())
 
 	dp := m.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue())
@@ -86,19 +86,19 @@ func TestCollectGardenletMetrics(t *testing.T) {
 	for i := 0; i < metrics.Len(); i++ {
 		names[metrics.At(i).Name()] = true
 	}
-	require.True(t, names["garden.gardenlet.condition"])
-	require.True(t, names["garden.gardenlet.generation"])
-	require.True(t, names["garden.gardenlet.observed_generation"])
+	require.True(t, names["gardenermetrics.gardenlet.condition"])
+	require.True(t, names["gardenermetrics.gardenlet.generation"])
+	require.True(t, names["gardenermetrics.gardenlet.observed_generation"])
 
 	// Check generation values
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
 		switch m.Name() {
-		case "garden.gardenlet.generation":
+		case "gardenermetrics.gardenlet.generation":
 			require.Equal(t, int64(5), m.Gauge().DataPoints().At(0).IntValue())
-		case "garden.gardenlet.observed_generation":
+		case "gardenermetrics.gardenlet.observed_generation":
 			require.Equal(t, int64(4), m.Gauge().DataPoints().At(0).IntValue())
-		case "garden.gardenlet.condition":
+		case "gardenermetrics.gardenlet.condition":
 			require.Equal(t, 1, m.Gauge().DataPoints().Len())
 			dp := m.Gauge().DataPoints().At(0)
 			condType, ok := dp.Attributes().Get("gardener.condition.type")
@@ -135,7 +135,7 @@ func TestCollectManagedSeedCountMetric_Empty(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.managed_seed.count", m.Name())
+	require.Equal(t, "gardenermetrics.managed_seed.count", m.Name())
 	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -151,7 +151,7 @@ func TestCollectManagedSeedCountMetric(t *testing.T) {
 
 	require.Equal(t, 1, md.MetricCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.managed_seed.count", m.Name())
+	require.Equal(t, "gardenermetrics.managed_seed.count", m.Name())
 	require.Equal(t, int64(2), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -181,7 +181,7 @@ func TestCollectGardenletCountMetric_Empty(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.gardenlet.count", m.Name())
+	require.Equal(t, "gardenermetrics.gardenlet.count", m.Name())
 	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -198,6 +198,6 @@ func TestCollectGardenletCountMetric(t *testing.T) {
 
 	require.Equal(t, 1, md.MetricCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.gardenlet.count", m.Name())
+	require.Equal(t, "gardenermetrics.gardenlet.count", m.Name())
 	require.Equal(t, int64(3), m.Gauge().DataPoints().At(0).IntValue())
 }

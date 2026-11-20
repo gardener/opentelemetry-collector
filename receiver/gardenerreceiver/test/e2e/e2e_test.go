@@ -78,20 +78,20 @@ var _ = BeforeSuite(func() {
 var _ = Describe("Gardener receiver metrics in Prometheus", func() {
 	// Scraped via the Prometheus exporter + ServiceMonitor: Prometheus-style
 	// name (dots become underscores).
-	It("exposes garden_shoot_info scraped via the Prometheus exporter", func(ctx SpecContext) {
+	It("exposes gardenermetrics_shoot_info scraped via the Prometheus exporter", func(ctx SpecContext) {
 		Eventually(func() (float64, error) {
-			return queryPrometheus(ctx, "count(garden_shoot_info)")
+			return queryPrometheus(ctx, "count(gardenermetrics_shoot_info)")
 		}).WithTimeout(metricTimeout).WithPolling(metricPoll).
-			Should(BeNumerically(">", 0), "expected garden_shoot_info (scraped) to be present")
+			Should(BeNumerically(">", 0), "expected gardenermetrics_shoot_info (scraped) to be present")
 	})
 
 	// Pushed via the second collector's otlphttp exporter into Prometheus' OTLP
 	// receiver while preserving the OpenTelemetry metric name.
-	It("exposes garden.shoot.info pushed via OTLP", func(ctx SpecContext) {
+	It("exposes gardenermetrics.shoot.info pushed via OTLP", func(ctx SpecContext) {
 		Eventually(func() (float64, error) {
-			return queryPrometheus(ctx, `count({__name__="garden.shoot.info"})`)
+			return queryPrometheus(ctx, `count({__name__="gardenermetrics.shoot.info"})`)
 		}).WithTimeout(metricTimeout).WithPolling(metricPoll).
-			Should(BeNumerically(">", 0), "expected garden.shoot.info (OTLP) to be present")
+			Should(BeNumerically(">", 0), "expected gardenermetrics.shoot.info (OTLP) to be present")
 	})
 })
 

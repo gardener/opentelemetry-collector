@@ -13,7 +13,7 @@ import (
 // collectProjectCountMetric emits the total number of projects.
 func (r *gardenerReceiver) collectProjectCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.project.count")
+	metric.SetName("gardenermetrics.project.count")
 	metric.SetDescription("Total number of Gardener projects")
 	metric.SetUnit("{project}")
 
@@ -32,7 +32,7 @@ func (r *gardenerReceiver) collectProjectMetrics(sm *pmetric.ScopeMetrics, now p
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.project.info")
+	metric.SetName("gardenermetrics.project.info")
 	metric.SetDescription("Status of projects")
 	metric.SetUnit("")
 
@@ -73,7 +73,7 @@ func (r *gardenerReceiver) collectUserMetrics(sm *pmetric.ScopeMetrics, now pcom
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.users")
+	metric.SetName("gardenermetrics.users")
 	metric.SetDescription("Count of users by kind across all projects")
 	metric.SetUnit("{user}")
 

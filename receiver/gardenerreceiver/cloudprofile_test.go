@@ -101,7 +101,7 @@ func TestCollectCloudProfileMetrics(t *testing.T) {
 	require.Equal(t, 2, md.MetricCount())
 	require.Equal(t, 5, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.cloud_profile.kubernetes.version.info", m.Name())
+	require.Equal(t, "gardenermetrics.cloud_profile.kubernetes.version.info", m.Name())
 	dp := m.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue())
 	name, ok := dp.Attributes().Get("gardener.cloud_profile.name")
@@ -127,7 +127,7 @@ func TestCollectCloudProfileMetrics(t *testing.T) {
 	require.Equal(t, "preview", classification.Str())
 
 	m = md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(1)
-	require.Equal(t, "garden.cloud_profile.machine_image.version.info", m.Name())
+	require.Equal(t, "gardenermetrics.cloud_profile.machine_image.version.info", m.Name())
 	dp = m.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue())
 	name, ok = dp.Attributes().Get("gardener.cloud_profile.name")

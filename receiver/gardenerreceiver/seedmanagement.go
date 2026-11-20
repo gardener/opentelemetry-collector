@@ -13,7 +13,7 @@ import (
 // collectManagedSeedCountMetric emits the total number of managed seeds.
 func (r *gardenerReceiver) collectManagedSeedCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.managed_seed.count")
+	metric.SetName("gardenermetrics.managed_seed.count")
 	metric.SetDescription("Total number of Gardener managed seeds")
 	metric.SetUnit("{managed_seed}")
 
@@ -32,7 +32,7 @@ func (r *gardenerReceiver) collectManagedSeedMetrics(sm *pmetric.ScopeMetrics, n
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.managed_seed.info")
+	metric.SetName("gardenermetrics.managed_seed.info")
 	metric.SetDescription("Information about a managed seed")
 	metric.SetUnit("")
 
@@ -55,7 +55,7 @@ func (r *gardenerReceiver) collectManagedSeedMetrics(sm *pmetric.ScopeMetrics, n
 // collectGardenletCountMetric emits the total number of gardenlets.
 func (r *gardenerReceiver) collectGardenletCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.gardenlet.count")
+	metric.SetName("gardenermetrics.gardenlet.count")
 	metric.SetDescription("Total number of Gardener gardenlets")
 	metric.SetUnit("{gardenlet}")
 
@@ -74,19 +74,19 @@ func (r *gardenerReceiver) collectGardenletMetrics(sm *pmetric.ScopeMetrics, now
 	}
 
 	conditionMetric := sm.Metrics().AppendEmpty()
-	conditionMetric.SetName("garden.gardenlet.condition")
+	conditionMetric.SetName("gardenermetrics.gardenlet.condition")
 	conditionMetric.SetDescription("Condition state of a Gardenlet. " + conditionValueDescription)
 	conditionMetric.SetUnit("")
 	conditionGauge := conditionMetric.SetEmptyGauge()
 
 	generationMetric := sm.Metrics().AppendEmpty()
-	generationMetric.SetName("garden.gardenlet.generation")
+	generationMetric.SetName("gardenermetrics.gardenlet.generation")
 	generationMetric.SetDescription("Generation of a Gardenlet")
 	generationMetric.SetUnit("{generation}")
 	generationGauge := generationMetric.SetEmptyGauge()
 
 	observedGenerationMetric := sm.Metrics().AppendEmpty()
-	observedGenerationMetric.SetName("garden.gardenlet.observed_generation")
+	observedGenerationMetric.SetName("gardenermetrics.gardenlet.observed_generation")
 	observedGenerationMetric.SetDescription("Observed generation of a Gardenlet")
 	observedGenerationMetric.SetUnit("{observed_generation}")
 	observedGenerationGauge := observedGenerationMetric.SetEmptyGauge()

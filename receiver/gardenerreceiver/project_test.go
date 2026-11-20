@@ -52,7 +52,7 @@ func TestCollectProjectCountMetric_Empty(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.project.count", m.Name())
+	require.Equal(t, "gardenermetrics.project.count", m.Name())
 	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -68,7 +68,7 @@ func TestCollectProjectCountMetric(t *testing.T) {
 
 	require.Equal(t, 1, md.MetricCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.project.count", m.Name())
+	require.Equal(t, "gardenermetrics.project.count", m.Name())
 	require.Equal(t, int64(2), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -96,7 +96,7 @@ func TestCollectProjectMetrics(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.project.info", m.Name())
+	require.Equal(t, "gardenermetrics.project.info", m.Name())
 	dp := m.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue())
 	name, ok := dp.Attributes().Get("gardener.project.name")
@@ -127,7 +127,7 @@ func TestCollectUserMetrics(t *testing.T) {
 	r.collectUserMetrics(&sm, nowTimestamp())
 
 	require.Equal(t, 1, md.MetricCount())
-	require.Equal(t, "garden.users", md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Name())
+	require.Equal(t, "gardenermetrics.users", md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Name())
 
 	// There should be 2 data points: one for "User" (count 2), one for "ServiceAccount" (count 1)
 	require.Equal(t, 2, md.DataPointCount())

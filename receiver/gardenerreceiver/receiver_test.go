@@ -223,8 +223,8 @@ func TestSendMetrics_ResourceGating(t *testing.T) {
 		resources []string
 		wantAny   string
 	}{
-		{"projects only", []string{"projects"}, "garden.project.info"},
-		{"seeds only", []string{"seeds"}, "garden.seed.info"},
+		{"projects only", []string{"projects"}, "gardenermetrics.project.info"},
+		{"seeds only", []string{"seeds"}, "gardenermetrics.seed.info"},
 		{"managedseeds only", []string{"managedseeds"}, ""}, // empty store → no metric
 		{"gardenlets only", []string{"gardenlets"}, ""},     // empty store → no metric
 	}

@@ -15,7 +15,7 @@ import (
 // collectSeedCountMetric emits the total number of seeds.
 func (r *gardenerReceiver) collectSeedCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.count")
+	metric.SetName("gardenermetrics.seed.count")
 	metric.SetDescription("Total number of Gardener seeds")
 	metric.SetUnit("{seed}")
 
@@ -35,7 +35,7 @@ func (r *gardenerReceiver) collectSeedInfoMetrics(sm *pmetric.ScopeMetrics, now 
 
 	// Create a gauge metric for seed
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.info")
+	metric.SetName("gardenermetrics.seed.info")
 	metric.SetDescription("Information about Gardener seeds")
 	metric.SetUnit("")
 
@@ -70,7 +70,7 @@ func (r *gardenerReceiver) collectSeedCapacityMetrics(sm *pmetric.ScopeMetrics, 
 
 	// Create a gauge metric for seed capacity
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.capacity")
+	metric.SetName("gardenermetrics.seed.capacity")
 	metric.SetDescription("Seed capacity")
 	metric.SetUnit("{shoot}")
 
@@ -101,7 +101,7 @@ func (r *gardenerReceiver) collectSeedConditions(sm *pmetric.ScopeMetrics, now p
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.condition")
+	metric.SetName("gardenermetrics.seed.condition")
 	metric.SetDescription("Condition state of a Seed. " + conditionValueDescription)
 	metric.SetUnit("")
 
@@ -128,7 +128,7 @@ func (r *gardenerReceiver) collectSeedConstraints(sm *pmetric.ScopeMetrics, now 
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.constraint")
+	metric.SetName("gardenermetrics.seed.constraint")
 	metric.SetDescription("Constraint state of a Seed. " + conditionValueDescription)
 	metric.SetUnit("")
 
@@ -158,7 +158,7 @@ func (r *gardenerReceiver) collectSeedAllocatableMetrics(sm *pmetric.ScopeMetric
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.usage")
+	metric.SetName("gardenermetrics.seed.usage")
 	metric.SetDescription("Seed allocatable (available for scheduling)")
 	metric.SetUnit("{shoot}")
 
@@ -185,7 +185,7 @@ func (r *gardenerReceiver) collectSeedOperationStates(sm *pmetric.ScopeMetrics, 
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.seed.operation")
+	metric.SetName("gardenermetrics.seed.operation")
 	metric.SetDescription("Operation state of a Seed. Available operations: 'Create'|'Reconcile'|'Delete'|'Restore'|'Migrate'.")
 	metric.SetUnit("")
 

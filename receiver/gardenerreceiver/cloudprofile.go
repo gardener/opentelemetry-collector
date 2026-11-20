@@ -19,13 +19,13 @@ func (r *gardenerReceiver) collectCloudProfileMetrics(sm *pmetric.ScopeMetrics, 
 	}
 
 	kubernetesMetric := sm.Metrics().AppendEmpty()
-	kubernetesMetric.SetName("garden.cloud_profile.kubernetes.version.info")
+	kubernetesMetric.SetName("gardenermetrics.cloud_profile.kubernetes.version.info")
 	kubernetesMetric.SetDescription("Information about Kubernetes versions in a CloudProfile")
 	kubernetesMetric.SetUnit("")
 	kubernetesGauge := kubernetesMetric.SetEmptyGauge()
 
 	machineImageMetric := sm.Metrics().AppendEmpty()
-	machineImageMetric.SetName("garden.cloud_profile.machine_image.version.info")
+	machineImageMetric.SetName("gardenermetrics.cloud_profile.machine_image.version.info")
 	machineImageMetric.SetDescription("Information about machine image versions in a CloudProfile")
 	machineImageMetric.SetUnit("")
 	machineImageGauge := machineImageMetric.SetEmptyGauge()

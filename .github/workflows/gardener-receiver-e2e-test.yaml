@@ -25,10 +25,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout collector
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version: '1.27'
 
@@ -54,7 +54,7 @@ jobs:
           echo "Testing against gardener/gardener ${ref}"
 
       - name: Checkout gardener
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: gardener/gardener
           ref: ${{ steps.gardener-ref.outputs.ref }}

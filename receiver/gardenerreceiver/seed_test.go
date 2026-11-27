@@ -48,7 +48,7 @@ func TestCollectSeedCountMetric_Empty(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.count", m.Name())
+	require.Equal(t, "gardenermetrics.seed.count", m.Name())
 	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -65,7 +65,7 @@ func TestCollectSeedCountMetric(t *testing.T) {
 
 	require.Equal(t, 1, md.MetricCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.count", m.Name())
+	require.Equal(t, "gardenermetrics.seed.count", m.Name())
 	require.Equal(t, int64(3), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -96,7 +96,7 @@ func TestCollectSeedOperationStates(t *testing.T) {
 	require.Equal(t, 1, md.DataPointCount())
 
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.operation", m.Name())
+	require.Equal(t, "gardenermetrics.seed.operation", m.Name())
 
 	dp := m.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue())
@@ -207,7 +207,7 @@ func TestEmitSeeds(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 1, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.info", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.seed.info", metrics.Name(), "unexpected metric name")
 	dp := metrics.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue(), "unexpected metric value")
 	attributes := dp.Attributes()
@@ -287,7 +287,7 @@ func TestEmitSeeds_Protected(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 1, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.info", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.seed.info", metrics.Name(), "unexpected metric name")
 	dp := metrics.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue(), "unexpected metric value")
 	attributes := dp.Attributes()
@@ -346,7 +346,7 @@ func TestEmitSeeds_Visible(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 1, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.info", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.seed.info", metrics.Name(), "unexpected metric name")
 	dp := metrics.Gauge().DataPoints().At(0)
 	require.Equal(t, int64(1), dp.IntValue(), "unexpected metric value")
 	attributes := dp.Attributes()
@@ -404,7 +404,7 @@ func TestEmitSeedCapacity(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 2, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.capacity", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.seed.capacity", metrics.Name(), "unexpected metric name")
 
 	resourceValues := map[string]int64{}
 	for i := 0; i < metrics.Gauge().DataPoints().Len(); i++ {
@@ -450,7 +450,7 @@ func TestCollectSeedConditions(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 2, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.condition", m.Name())
+	require.Equal(t, "gardenermetrics.seed.condition", m.Name())
 
 	dp := m.Gauge().DataPoints().At(0)
 	seedName, ok := dp.Attributes().Get("gardener.seed.name")
@@ -499,7 +499,7 @@ func TestCollectSeedConstraints(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.constraint", m.Name())
+	require.Equal(t, "gardenermetrics.seed.constraint", m.Name())
 
 	dp := m.Gauge().DataPoints().At(0)
 	seedName, ok := dp.Attributes().Get("gardener.seed.name")
@@ -550,6 +550,6 @@ func TestCollectSeedAllocatableMetrics(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.seed.usage", m.Name())
+	require.Equal(t, "gardenermetrics.seed.usage", m.Name())
 	require.Equal(t, int64(100), m.Gauge().DataPoints().At(0).IntValue())
 }

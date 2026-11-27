@@ -126,7 +126,7 @@ func TestEmitShoots(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 1, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.info", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.info", metrics.Name(), "unexpected metric name")
 	dp := metrics.Gauge().DataPoints().At(0)
 
 	require.Equal(t, int64(1), dp.IntValue(), "unexpected metric value")
@@ -231,7 +231,7 @@ func TestEmitShootOperations(t *testing.T) {
 
 	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	statesMetric := scopeMetrics.At(0)
-	require.Equal(t, "garden.shoot.operation_states", statesMetric.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.operation_states", statesMetric.Name(), "unexpected metric name")
 
 	// Find the data point for the active Reconcile operation.
 	var reconcileDp pmetric.NumberDataPoint
@@ -271,7 +271,7 @@ func TestEmitShootOperations(t *testing.T) {
 
 	// Verify progress metric contains the right progress for the Reconcile operation.
 	progressMetric := scopeMetrics.At(1)
-	require.Equal(t, "garden.shoot.operation_progress_percent", progressMetric.Name(), "unexpected progress metric name")
+	require.Equal(t, "gardenermetrics.shoot.operation_progress_percent", progressMetric.Name(), "unexpected progress metric name")
 	for i := 0; i < progressMetric.Gauge().DataPoints().Len(); i++ {
 		dp := progressMetric.Gauge().DataPoints().At(i)
 		opType, _ := dp.Attributes().Get("gardener.operation.type")
@@ -342,7 +342,7 @@ func TestEmitShootConditions(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 1, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.condition", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.condition", metrics.Name(), "unexpected metric name")
 
 	dp := metrics.Gauge().DataPoints().At(0)
 	attributes := dp.Attributes()
@@ -436,7 +436,7 @@ func TestEmitShootConstraints(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 2, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.constraint", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.constraint", metrics.Name(), "unexpected metric name")
 
 	dp := metrics.Gauge().DataPoints().At(0)
 	attributes := dp.Attributes()
@@ -565,7 +565,7 @@ func TestEmitShootStatus(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount(), "unexpected metric count")
 	require.Equal(t, 4, md.DataPointCount(), "unexpected data point count")
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.status", metrics.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.status", metrics.Name(), "unexpected metric name")
 
 	statusValues := []string{"healthy", "progressing", "unhealthy", "unknown"}
 	for i, status := range statusValues {
@@ -660,7 +660,7 @@ func TestEmitShootNodeMetrics(t *testing.T) {
 	require.Equal(t, 5, md.DataPointCount(), "unexpected data point count")
 
 	minWorkerMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.worker.min", minWorkerMetric.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.worker.min", minWorkerMetric.Name(), "unexpected metric name")
 	require.Equal(t, 1, minWorkerMetric.Gauge().DataPoints().Len(), "unexpected data point count for min worker metric")
 	require.Equal(t, int64(1), minWorkerMetric.Gauge().DataPoints().At(0).IntValue(), "unexpected min worker value")
 
@@ -677,7 +677,7 @@ func TestEmitShootNodeMetrics(t *testing.T) {
 	require.Equal(t, "shoot-uid-node", uid.Str(), "unexpected uid attribute for min worker metric")
 
 	maxWorkerMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(1)
-	require.Equal(t, "garden.shoot.worker.max", maxWorkerMetric.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.worker.max", maxWorkerMetric.Name(), "unexpected metric name")
 	require.Equal(t, 1, maxWorkerMetric.Gauge().DataPoints().Len(), "unexpected data point count for max worker metric")
 	require.Equal(t, int64(3), maxWorkerMetric.Gauge().DataPoints().At(0).IntValue(), "unexpected max worker value")
 
@@ -690,17 +690,17 @@ func TestEmitShootNodeMetrics(t *testing.T) {
 	require.Equal(t, "test-type", machineType.Str(), "unexpected machine type attribute")
 
 	shootNodeInfoMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(2)
-	require.Equal(t, "garden.shoot.node.info", shootNodeInfoMetric.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.node.info", shootNodeInfoMetric.Name(), "unexpected metric name")
 	require.Equal(t, 1, shootNodeInfoMetric.Gauge().DataPoints().Len(), "unexpected data point count for shoot node info metric")
 	require.Equal(t, int64(1), shootNodeInfoMetric.Gauge().DataPoints().At(0).IntValue(), "unexpected shoot node info metric value")
 
 	minNodesMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(3)
-	require.Equal(t, "garden.shoot.nodes.min", minNodesMetric.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.nodes.min", minNodesMetric.Name(), "unexpected metric name")
 	require.Equal(t, 1, minNodesMetric.Gauge().DataPoints().Len(), "unexpected data point count for min nodes metric")
 	require.Equal(t, int64(1), minNodesMetric.Gauge().DataPoints().At(0).IntValue(), "unexpected min nodes value")
 
 	maxNodesMetric := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(4)
-	require.Equal(t, "garden.shoot.nodes.max", maxNodesMetric.Name(), "unexpected metric name")
+	require.Equal(t, "gardenermetrics.shoot.nodes.max", maxNodesMetric.Name(), "unexpected metric name")
 	require.Equal(t, 1, maxNodesMetric.Gauge().DataPoints().Len(), "unexpected data point count for max nodes metric")
 	require.Equal(t, int64(3), maxNodesMetric.Gauge().DataPoints().At(0).IntValue(), "unexpected max nodes value")
 }
@@ -777,7 +777,7 @@ func TestCollectShootOperationsTotal(t *testing.T) {
 	// 2 unique key combinations: (Reconcile/Succeeded/aws/seed-1/1.26.0/eu-west-1) and (Delete/Processing/...)
 	require.Equal(t, 2, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.operations_total", m.Name())
+	require.Equal(t, "gardenermetrics.shoot.operations_total", m.Name())
 }
 
 func TestCollectShootCustomizationMetrics(t *testing.T) {
@@ -832,13 +832,13 @@ func TestCollectShootCustomizationMetrics(t *testing.T) {
 		names[m.Name()] = m.Gauge().DataPoints().At(0).IntValue()
 	}
 
-	require.Equal(t, int64(1), names["garden.shoots.hibernation.enabled_total"])
-	require.Equal(t, int64(1), names["garden.shoots.hibernation.schedule_total"])
-	require.Equal(t, int64(1), names["garden.shoots.maintenance.window_total"])
-	require.Equal(t, int64(1), names["garden.shoots.maintenance.autoupdate.k8s_version_total"])
-	require.Equal(t, int64(1), names["garden.shoots.maintenance.autoupdate.image_version_total"])
-	require.Equal(t, int64(1), names["garden.shoots.custom.worker.multiple_pools_total"])
-	require.Equal(t, int64(1), names["garden.shoots.custom.worker.multi_zones_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.hibernation.enabled_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.hibernation.schedule_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.maintenance.window_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.maintenance.autoupdate.k8s_version_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.maintenance.autoupdate.image_version_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.custom.worker.multiple_pools_total"])
+	require.Equal(t, int64(1), names["gardenermetrics.shoots.custom.worker.multi_zones_total"])
 }
 
 // ---------------------------------------------------------------------------
@@ -1362,9 +1362,9 @@ func TestCollectShootCustomizationMetrics_NoOptionals(t *testing.T) {
 		},
 	}
 	names := collectCustomizationMetrics(t, shoot)
-	assert.Equal(t, int64(0), names["garden.shoots.hibernation.enabled_total"])
-	assert.Equal(t, int64(0), names["garden.shoots.custom.apiserver.structured_authentication_total"])
-	assert.Equal(t, int64(0), names["garden.shoots.custom.worker.multiple_pools_total"])
+	assert.Equal(t, int64(0), names["gardenermetrics.shoots.hibernation.enabled_total"])
+	assert.Equal(t, int64(0), names["gardenermetrics.shoots.custom.apiserver.structured_authentication_total"])
+	assert.Equal(t, int64(0), names["gardenermetrics.shoots.custom.worker.multiple_pools_total"])
 	assert.Equal(t, int64(16), int64(len(names)), "expected exactly 16 scalar metrics")
 }
 
@@ -1420,15 +1420,15 @@ func TestCollectShootCustomizationMetrics_FeatureGates(t *testing.T) {
 	}
 
 	// Only FeatureA is enabled → 1 data point for apiserver feature gates.
-	apiFG, ok := metricsByName["garden.shoots.custom.apiserver.feature_gates_total"]
+	apiFG, ok := metricsByName["gardenermetrics.shoots.custom.apiserver.feature_gates_total"]
 	require.True(t, ok, "apiserver feature gates metric must exist")
 	assert.Equal(t, 1, apiFG.Gauge().DataPoints().Len(), "only enabled gates should be counted")
 	fg, _ := apiFG.Gauge().DataPoints().At(0).Attributes().Get("gardener.feature_gate")
 	assert.Equal(t, "FeatureA", fg.Str())
 
-	_, hasKCM := metricsByName["garden.shoots.custom.kcm.feature_gates_total"]
+	_, hasKCM := metricsByName["gardenermetrics.shoots.custom.kcm.feature_gates_total"]
 	assert.True(t, hasKCM)
-	_, hasSched := metricsByName["garden.shoots.custom.scheduler.feature_gates_total"]
+	_, hasSched := metricsByName["gardenermetrics.shoots.custom.scheduler.feature_gates_total"]
 	assert.True(t, hasSched)
 }
 
@@ -1468,7 +1468,7 @@ func TestCollectShootCustomizationMetrics_AdmissionPlugins(t *testing.T) {
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
-		if m.Name() == "garden.shoots.custom.apiserver.admission_plugins_total" {
+		if m.Name() == "gardenermetrics.shoots.custom.apiserver.admission_plugins_total" {
 			assert.Equal(t, 1, m.Gauge().DataPoints().Len(), "only enabled admission plugins should be counted")
 			ap, _ := m.Gauge().DataPoints().At(0).Attributes().Get("gardener.admission_plugin")
 			assert.Equal(t, "PodSecurity", ap.Str())
@@ -1514,7 +1514,7 @@ func TestCollectShootCustomizationMetrics_ProxyModes(t *testing.T) {
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
-		if m.Name() == "garden.shoots.custom.proxy.mode_total" {
+		if m.Name() == "gardenermetrics.shoots.custom.proxy.mode_total" {
 			require.Equal(t, 1, m.Gauge().DataPoints().Len())
 			modeVal, _ := m.Gauge().DataPoints().At(0).Attributes().Get("gardener.proxy.mode")
 			assert.Equal(t, "IPTables", modeVal.Str())
@@ -1557,7 +1557,7 @@ func TestCollectShootCustomizationMetrics_Extensions(t *testing.T) {
 	metrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
-		if m.Name() == "garden.shoots.custom.extensions_total" {
+		if m.Name() == "gardenermetrics.shoots.custom.extensions_total" {
 			require.Equal(t, 1, m.Gauge().DataPoints().Len())
 			extType, _ := m.Gauge().DataPoints().At(0).Attributes().Get("gardener.extension.type")
 			assert.Equal(t, "shoot-dns-service", extType.Str())
@@ -1598,7 +1598,7 @@ func TestCollectShootCustomizationMetrics_StructuredAuthentication(t *testing.T)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			names := collectCustomizationMetrics(t, mkShoot("sa-shoot", tc.sa))
-			assert.Equal(t, tc.count, names["garden.shoots.custom.apiserver.structured_authentication_total"])
+			assert.Equal(t, tc.count, names["gardenermetrics.shoots.custom.apiserver.structured_authentication_total"])
 		})
 	}
 }
@@ -1620,7 +1620,7 @@ func TestCollectShootCustomizationMetrics_StructuredAuthentication_MultipleShoot
 		mkShoot("s2", &corev1beta1.StructuredAuthentication{ConfigMapName: "auth-cm-2"}),
 		mkShoot("s3", nil),
 	)
-	assert.Equal(t, int64(2), names["garden.shoots.custom.apiserver.structured_authentication_total"])
+	assert.Equal(t, int64(2), names["gardenermetrics.shoots.custom.apiserver.structured_authentication_total"])
 }
 
 // ---------------------------------------------------------------------------
@@ -1762,7 +1762,7 @@ func TestCollectShootCreationTimestamp(t *testing.T) {
 
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	assert.Equal(t, "garden.shoot.creation_timestamp", m.Name())
+	assert.Equal(t, "gardenermetrics.shoot.creation_timestamp", m.Name())
 	assert.Equal(t, int64(1700000000), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -1793,7 +1793,7 @@ func TestCollectShootHibernatedMetric(t *testing.T) {
 
 			require.Equal(t, 1, md.DataPointCount())
 			m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-			assert.Equal(t, "garden.shoot.hibernated", m.Name())
+			assert.Equal(t, "gardenermetrics.shoot.hibernated", m.Name())
 			assert.Equal(t, tc.wantValue, m.Gauge().DataPoints().At(0).IntValue())
 		})
 	}
@@ -1825,7 +1825,7 @@ func TestCollectShootCountMetric_Empty(t *testing.T) {
 	require.Equal(t, 1, md.MetricCount())
 	require.Equal(t, 1, md.DataPointCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.count", m.Name())
+	require.Equal(t, "gardenermetrics.shoot.count", m.Name())
 	require.Equal(t, int64(0), m.Gauge().DataPoints().At(0).IntValue())
 }
 
@@ -1841,6 +1841,6 @@ func TestCollectShootCountMetric(t *testing.T) {
 
 	require.Equal(t, 1, md.MetricCount())
 	m := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0)
-	require.Equal(t, "garden.shoot.count", m.Name())
+	require.Equal(t, "gardenermetrics.shoot.count", m.Name())
 	require.Equal(t, int64(2), m.Gauge().DataPoints().At(0).IntValue())
 }

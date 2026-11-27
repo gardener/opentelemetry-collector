@@ -157,7 +157,7 @@ func getMaintenancePreconditionsStatus(shoot *corev1beta1.Shoot) string {
 // collectShootCountMetric emits the total number of shoots.
 func (r *gardenerReceiver) collectShootCountMetric(sm *pmetric.ScopeMetrics, now pcommon.Timestamp) {
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.count")
+	metric.SetName("gardenermetrics.shoot.count")
 	metric.SetDescription("Total number of Gardener shoots")
 	metric.SetUnit("{shoot}")
 
@@ -175,7 +175,7 @@ func (r *gardenerReceiver) collectShootInfoMetrics(sm *pmetric.ScopeMetrics, now
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.info")
+	metric.SetName("gardenermetrics.shoot.info")
 	metric.SetDescription("Information about Gardener shoots")
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
@@ -232,7 +232,7 @@ func (r *gardenerReceiver) collectShootHibernatedMetric(sm *pmetric.ScopeMetrics
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.hibernated")
+	metric.SetName("gardenermetrics.shoot.hibernated")
 	metric.SetDescription("Hibernation status of a shoot. Value is 1 if the shoot is currently hibernated, 0 otherwise.")
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
@@ -260,7 +260,7 @@ func (r *gardenerReceiver) collectShootCreationTimestamp(sm *pmetric.ScopeMetric
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.creation_timestamp")
+	metric.SetName("gardenermetrics.shoot.creation_timestamp")
 	metric.SetDescription("Timestamp of the shoot creation.")
 	metric.SetUnit("s")
 	gauge := metric.SetEmptyGauge()
@@ -285,13 +285,13 @@ func (r *gardenerReceiver) collectShootOperationStates(sm *pmetric.ScopeMetrics,
 	}
 
 	statesMetric := sm.Metrics().AppendEmpty()
-	statesMetric.SetName("garden.shoot.operation_states")
+	statesMetric.SetName("gardenermetrics.shoot.operation_states")
 	statesMetric.SetDescription("Operation state of a Shoot. Available operations: 'Create'|'Reconcile'|'Delete'|'Migrate'|'Restore'.")
 	statesMetric.SetUnit("")
 	statesGauge := statesMetric.SetEmptyGauge()
 
 	progressMetric := sm.Metrics().AppendEmpty()
-	progressMetric.SetName("garden.shoot.operation_progress_percent")
+	progressMetric.SetName("gardenermetrics.shoot.operation_progress_percent")
 	progressMetric.SetDescription("Operation progress of a Shoot in percent.")
 	progressMetric.SetUnit("%")
 	progressGauge := progressMetric.SetEmptyGauge()
@@ -346,7 +346,7 @@ func (r *gardenerReceiver) collectShootConditions(sm *pmetric.ScopeMetrics, now 
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.condition")
+	metric.SetName("gardenermetrics.shoot.condition")
 	metric.SetDescription("Condition state of a Gardener shoot. " + conditionValueDescription)
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
@@ -386,7 +386,7 @@ func (r *gardenerReceiver) collectShootConstraints(sm *pmetric.ScopeMetrics, now
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.constraint")
+	metric.SetName("gardenermetrics.shoot.constraint")
 	metric.SetDescription("Constraint state of a Gardener shoot. " + conditionValueDescription)
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
@@ -417,7 +417,7 @@ func (r *gardenerReceiver) collectShootStatusMetric(sm *pmetric.ScopeMetrics, no
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.status")
+	metric.SetName("gardenermetrics.shoot.status")
 	metric.SetDescription("Status of a Gardener shoot")
 	metric.SetUnit("")
 	gauge := metric.SetEmptyGauge()
@@ -455,31 +455,31 @@ func (r *gardenerReceiver) collectShootNodeMetrics(sm *pmetric.ScopeMetrics, now
 	}
 
 	minWorkerMetric := sm.Metrics().AppendEmpty()
-	minWorkerMetric.SetName("garden.shoot.worker.min")
+	minWorkerMetric.SetName("gardenermetrics.shoot.worker.min")
 	minWorkerMetric.SetDescription("Minimum number of nodes in worker pool")
 	minWorkerMetric.SetUnit("{node}")
 	minWorkerGauge := minWorkerMetric.SetEmptyGauge()
 
 	maxWorkerMetric := sm.Metrics().AppendEmpty()
-	maxWorkerMetric.SetName("garden.shoot.worker.max")
+	maxWorkerMetric.SetName("gardenermetrics.shoot.worker.max")
 	maxWorkerMetric.SetDescription("Maximum number of nodes in worker pool")
 	maxWorkerMetric.SetUnit("{node}")
 	maxWorkerGauge := maxWorkerMetric.SetEmptyGauge()
 
 	shootNodeInfoMetric := sm.Metrics().AppendEmpty()
-	shootNodeInfoMetric.SetName("garden.shoot.node.info")
+	shootNodeInfoMetric.SetName("gardenermetrics.shoot.node.info")
 	shootNodeInfoMetric.SetDescription("Information about worker pools in Gardener shoots")
 	shootNodeInfoMetric.SetUnit("")
 	shootNodeInfoGauge := shootNodeInfoMetric.SetEmptyGauge()
 
 	minNodesMetric := sm.Metrics().AppendEmpty()
-	minNodesMetric.SetName("garden.shoot.nodes.min")
+	minNodesMetric.SetName("gardenermetrics.shoot.nodes.min")
 	minNodesMetric.SetDescription("Minimum number of nodes in Gardener shoot")
 	minNodesMetric.SetUnit("{node}")
 	minNodesGauge := minNodesMetric.SetEmptyGauge()
 
 	maxNodesMetric := sm.Metrics().AppendEmpty()
-	maxNodesMetric.SetName("garden.shoot.nodes.max")
+	maxNodesMetric.SetName("gardenermetrics.shoot.nodes.max")
 	maxNodesMetric.SetDescription("Maximum number of nodes in Gardener shoot")
 	maxNodesMetric.SetUnit("{node}")
 	maxNodesGauge := maxNodesMetric.SetEmptyGauge()
@@ -601,7 +601,7 @@ func (r *gardenerReceiver) collectShootOperationsTotal(sm *pmetric.ScopeMetrics,
 	}
 
 	metric := sm.Metrics().AppendEmpty()
-	metric.SetName("garden.shoot.operations_total")
+	metric.SetName("gardenermetrics.shoot.operations_total")
 	metric.SetDescription("Count of ongoing shoot operations")
 	metric.SetUnit("{operation}")
 
@@ -789,22 +789,22 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 		value int64
 	}
 	scalarMetrics := []customMetric{
-		{"garden.shoots.hibernation.enabled_total", "Count of shoots with hibernation enabled", hibernationEnabled},
-		{"garden.shoots.hibernation.schedule_total", "Count of shoots with a hibernation schedule configured", hibernationScheduled},
-		{"garden.shoots.maintenance.window_total", "Count of shoots with a maintenance window configured", maintenanceWindow},
-		{"garden.shoots.maintenance.autoupdate.k8s_version_total", "Count of shoots with auto-update for kubernetes versions configured", autoUpdateK8s},
-		{"garden.shoots.maintenance.autoupdate.image_version_total", "Count of shoots with auto-update for machine image versions configured", autoUpdateMachineImage},
-		{"garden.shoots.custom.worker.multiple_pools_total", "Count of shoots with multiple worker pools", multipleWorkerPools},
-		{"garden.shoots.custom.worker.multi_zones_total", "Count of shoots with multi zone worker pools", multiZoneWorkers},
-		{"garden.shoots.custom.network.custom_domain_total", "Count of shoots which use a custom DNS domain", customDomain},
-		{"garden.shoots.custom.worker.taints_total", "Count of shoots with worker pool taints", workerTaints},
-		{"garden.shoots.custom.worker.labels_total", "Count of shoots with worker pool labels", workerLabels},
-		{"garden.shoots.custom.worker.annotations_total", "Count of shoots with worker pool annotations", workerAnnotations},
-		{"garden.shoots.custom.apiserver.audit_policy_total", "Count of shoots with an audit log policy configured for the kube apiserver", auditPolicyCount},
-		{"garden.shoots.custom.apiserver.structured_authentication_total", "Count of shoots with a structured authentication configuration for the kube apiserver", structuredAuthenticationCount},
-		{"garden.shoots.custom.kcm.node_cidr_mask_size_total", "Count of shoots which have node CIDR mask size configured on the kube controller manager", nodeCIDRMaskCount},
-		{"garden.shoots.custom.kcm.horizontal_pod_autoscale_total", "Count of shoots with horizontal pod autoscaling for the kube controller manager", hpaKCMCount},
-		{"garden.shoots.custom.kubelet.pod_pid_limit_total", "Count of shoots which have a pod PID limit configured for the kubelet(s)", podPIDLimitCount},
+		{"gardenermetrics.shoots.hibernation.enabled_total", "Count of shoots with hibernation enabled", hibernationEnabled},
+		{"gardenermetrics.shoots.hibernation.schedule_total", "Count of shoots with a hibernation schedule configured", hibernationScheduled},
+		{"gardenermetrics.shoots.maintenance.window_total", "Count of shoots with a maintenance window configured", maintenanceWindow},
+		{"gardenermetrics.shoots.maintenance.autoupdate.k8s_version_total", "Count of shoots with auto-update for kubernetes versions configured", autoUpdateK8s},
+		{"gardenermetrics.shoots.maintenance.autoupdate.image_version_total", "Count of shoots with auto-update for machine image versions configured", autoUpdateMachineImage},
+		{"gardenermetrics.shoots.custom.worker.multiple_pools_total", "Count of shoots with multiple worker pools", multipleWorkerPools},
+		{"gardenermetrics.shoots.custom.worker.multi_zones_total", "Count of shoots with multi zone worker pools", multiZoneWorkers},
+		{"gardenermetrics.shoots.custom.network.custom_domain_total", "Count of shoots which use a custom DNS domain", customDomain},
+		{"gardenermetrics.shoots.custom.worker.taints_total", "Count of shoots with worker pool taints", workerTaints},
+		{"gardenermetrics.shoots.custom.worker.labels_total", "Count of shoots with worker pool labels", workerLabels},
+		{"gardenermetrics.shoots.custom.worker.annotations_total", "Count of shoots with worker pool annotations", workerAnnotations},
+		{"gardenermetrics.shoots.custom.apiserver.audit_policy_total", "Count of shoots with an audit log policy configured for the kube apiserver", auditPolicyCount},
+		{"gardenermetrics.shoots.custom.apiserver.structured_authentication_total", "Count of shoots with a structured authentication configuration for the kube apiserver", structuredAuthenticationCount},
+		{"gardenermetrics.shoots.custom.kcm.node_cidr_mask_size_total", "Count of shoots which have node CIDR mask size configured on the kube controller manager", nodeCIDRMaskCount},
+		{"gardenermetrics.shoots.custom.kcm.horizontal_pod_autoscale_total", "Count of shoots with horizontal pod autoscaling for the kube controller manager", hpaKCMCount},
+		{"gardenermetrics.shoots.custom.kubelet.pod_pid_limit_total", "Count of shoots which have a pod PID limit configured for the kubelet(s)", podPIDLimitCount},
 	}
 
 	for _, m := range scalarMetrics {
@@ -827,37 +827,37 @@ func (r *gardenerReceiver) collectShootCustomizationMetrics(sm *pmetric.ScopeMet
 	}
 	labeledMetrics := []labeledMetric{
 		{
-			"garden.shoots.custom.extensions_total",
+			"gardenermetrics.shoots.custom.extensions_total",
 			"Count of shoots which have a specific extension configured",
 			"gardener.extension.type",
 			extensionCounts,
 		},
 		{
-			"garden.shoots.custom.apiserver.feature_gates_total",
+			"gardenermetrics.shoots.custom.apiserver.feature_gates_total",
 			"Count of shoots with enabled kube apiserver feature gates",
 			"gardener.feature_gate",
 			featureGatesAPIServer,
 		},
 		{
-			"garden.shoots.custom.apiserver.admission_plugins_total",
+			"gardenermetrics.shoots.custom.apiserver.admission_plugins_total",
 			"Count of shoots with enabled kube apiserver admission plugins",
 			"gardener.admission_plugin",
 			admissionPlugins,
 		},
 		{
-			"garden.shoots.custom.kcm.feature_gates_total",
+			"gardenermetrics.shoots.custom.kcm.feature_gates_total",
 			"Count of shoots with enabled kube controller manager feature gates",
 			"gardener.feature_gate",
 			featureGatesKCM,
 		},
 		{
-			"garden.shoots.custom.scheduler.feature_gates_total",
+			"gardenermetrics.shoots.custom.scheduler.feature_gates_total",
 			"Count of shoots with enabled kube scheduler feature gates",
 			"gardener.feature_gate",
 			featureGatesScheduler,
 		},
 		{
-			"garden.shoots.custom.proxy.mode_total",
+			"gardenermetrics.shoots.custom.proxy.mode_total",
 			"Count of shoots by proxy mode configuration for the kube proxy",
 			"gardener.proxy.mode",
 			proxyModes,
